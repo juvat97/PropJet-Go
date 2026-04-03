@@ -536,20 +536,23 @@ function fmtTime(m){
   return h+'+'+String(t%60).padStart(2,'0');
 }
 function cruiseGphAtAlt(altFt,anchorAlt,anchorGph){
-  // Model: fuel burn decreases ~0.8%/1000ft up to FL190 (flat-rating benefit)
-  // then increases ~1.8%/1000ft above FL190 (ITT limit degrades efficiency)
-  // All relative to anchor altitude
+  // M601 model: efficiency improves ~0.8%/1000ft up to FL190 (flat-rating benefit)
+  // Above FL190 efficiency degrades ~1.8%/1000ft (ITT limiting)
+  // Fuel burn = anchorGph * factor, so lower factor = less fuel = more efficient
   var f;
   if(altFt<=19000&&anchorAlt<=19000){
+    // Both below FL190: linear improvement going up
     f=1-(altFt-anchorAlt)/1000*0.008;
   } else if(altFt>19000&&anchorAlt>19000){
-    f=1-(altFt-anchorAlt)/1000*0.018;
+    // Both above FL190: linear degradation going up
+    f=1+(altFt-anchorAlt)/1000*0.018;
   } else if(altFt<=19000&&anchorAlt>19000){
-    // going down from above FL190 anchor to below FL190
+    // Anchor above FL190, comparing to lower alt: below FL190 is more efficient than anchor
     f=1+(anchorAlt-19000)/1000*0.018+(19000-altFt)/1000*0.008;
   } else {
-    // altFt>19000, anchorAlt<=19000: going up through FL190
-    f=1-(19000-anchorAlt)/1000*0.008-(altFt-19000)/1000*0.018;
+    // altFt>19000, anchorAlt<=19000: crossing FL190 going up
+    // Improvement from anchorAlt to FL190, then degradation from FL190 to altFt
+    f=1-(19000-anchorAlt)/1000*0.008+(altFt-19000)/1000*0.018;
   }
   return anchorGph*Math.max(0.6,Math.min(1.5,f));
 }
