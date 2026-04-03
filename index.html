@@ -316,17 +316,57 @@
   </div>
 
   <div class="card">
-    <div class="section-label">Departure &amp; arrival</div>
-    <div class="elev-row">
-      <div class="elev-item">
-        <label>Departure elevation (ft)</label>
-        <input type="number" id="dep-elev" value="1000" min="0" max="14000" step="100">
+    <div class="section-label">Departure</div>
+    <div style="display:flex;gap:8px;align-items:flex-end;margin-bottom:0.75rem;">
+      <div style="flex:1;">
+        <div style="font-size:13px;color:var(--text2);margin-bottom:4px;">ICAO identifier</div>
+        <input type="text" id="dep-icao" placeholder="KGYR" value="KGYR" maxlength="4"
+          style="width:100%;text-transform:uppercase;font-size:15px;padding:7px 10px;border:0.5px solid var(--border2);border-radius:var(--radius);background:var(--bg2);color:var(--text);">
       </div>
-      <div class="elev-item">
-        <label>Arrival elevation (ft)</label>
-        <input type="number" id="arr-elev" value="1000" min="0" max="14000" step="100">
+      <div style="flex:1;">
+        <div style="font-size:13px;color:var(--text2);margin-bottom:4px;">Field elevation (ft)</div>
+        <input type="number" id="dep-elev" value="1000" min="0" max="14000" step="100"
+          style="width:100%;text-align:right;font-size:14px;padding:6px 8px;border:0.5px solid var(--border2);border-radius:var(--radius);background:var(--bg2);color:var(--text);">
       </div>
+      <button id="dep-fetch-btn" onclick="fetchAirport('dep')"
+        style="flex-shrink:0;font-size:13px;padding:7px 14px;border-radius:var(--radius);border:0.5px solid var(--border2);background:transparent;color:var(--text2);cursor:pointer;white-space:nowrap;height:38px;">
+        Fetch
+      </button>
     </div>
+    <div id="dep-wx" style="display:none;border-radius:var(--radius);background:var(--bg2);padding:8px 10px;font-size:12px;color:var(--text2);line-height:1.6;"></div>
+  </div>
+
+  <div style="display:flex;justify-content:center;align-items:center;margin:-0.25rem 0;position:relative;height:36px;">
+    <div style="position:absolute;left:0;right:0;top:50%;border-top:0.5px solid var(--border);"></div>
+    <button onclick="swapAirports()"
+      style="position:relative;width:36px;height:36px;border-radius:50%;border:0.5px solid var(--border2);background:var(--bg);color:var(--text2);cursor:pointer;padding:0;margin-top:0;z-index:1;display:flex;align-items:center;justify-content:center;">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:block;flex-shrink:0;">
+        <path d="M8 2L5 5.5H11L8 2Z" fill="currentColor"/>
+        <path d="M8 14L5 10.5H11L8 14Z" fill="currentColor"/>
+        <line x1="8" y1="2" x2="8" y2="14" stroke="currentColor" stroke-width="1.5"/>
+      </svg>
+    </button>
+  </div>
+
+  <div class="card">
+    <div class="section-label">Arrival</div>
+    <div style="display:flex;gap:8px;align-items:flex-end;margin-bottom:0.75rem;">
+      <div style="flex:1;">
+        <div style="font-size:13px;color:var(--text2);margin-bottom:4px;">ICAO identifier</div>
+        <input type="text" id="arr-icao" placeholder="KAFO" value="KAFO" maxlength="4"
+          style="width:100%;text-transform:uppercase;font-size:15px;padding:7px 10px;border:0.5px solid var(--border2);border-radius:var(--radius);background:var(--bg2);color:var(--text);">
+      </div>
+      <div style="flex:1;">
+        <div style="font-size:13px;color:var(--text2);margin-bottom:4px;">Field elevation (ft)</div>
+        <input type="number" id="arr-elev" value="1000" min="0" max="14000" step="100"
+          style="width:100%;text-align:right;font-size:14px;padding:6px 8px;border:0.5px solid var(--border2);border-radius:var(--radius);background:var(--bg2);color:var(--text);">
+      </div>
+      <button id="arr-fetch-btn" onclick="fetchAirport('arr')"
+        style="flex-shrink:0;font-size:13px;padding:7px 14px;border-radius:var(--radius);border:0.5px solid var(--border2);background:transparent;color:var(--text2);cursor:pointer;white-space:nowrap;height:38px;">
+        Fetch
+      </button>
+    </div>
+    <div id="arr-wx" style="display:none;border-radius:var(--radius);background:var(--bg2);padding:8px 10px;font-size:12px;color:var(--text2);line-height:1.6;"></div>
   </div>
 
   <div class="card">
@@ -666,6 +706,14 @@ function resetDefaults(){
     if(!el) return;
     el.value=val;
   });
+  ['dep-icao','arr-icao'].forEach(function(id){
+    var el=document.getElementById(id);
+    if(el) el.value='';
+  });
+  ['dep-wx','arr-wx'].forEach(function(id){
+    var el=document.getElementById(id);
+    if(el){ el.style.display='none'; el.innerHTML=''; }
+  });
   update();
 }
 
@@ -673,6 +721,125 @@ document.getElementById('reset-btn').addEventListener('click',resetDefaults);
 document.querySelectorAll('input,select').forEach(el=>el.addEventListener('input',update));
 window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',update);
 update();
+
+document.getElementById('dep-icao').addEventListener('keydown', function(e){ if(e.key==='Enter') fetchAirport('dep'); });
+document.getElementById('arr-icao').addEventListener('keydown', function(e){ if(e.key==='Enter') fetchAirport('arr'); });
+
+window.update = update;
+
+} // end init()
+</script>
+<script>
+function fetchAirport(which) {
+  var icaoEl = document.getElementById(which + '-icao');
+  var elevEl = document.getElementById(which + '-elev');
+  var wxEl   = document.getElementById(which + '-wx');
+  var btn    = document.getElementById(which + '-fetch-btn');
+  var icao   = icaoEl.value.trim().toUpperCase();
+  if (icao.length < 3) {
+    wxEl.style.display = 'block';
+    wxEl.innerHTML = '<span style="color:#A32D2D;">Enter a valid ICAO identifier (e.g. KGYR)</span>';
+    return;
+  }
+  btn.textContent = '...';
+  btn.disabled = true;
+  var key = 'd95164f28f8c457099dca7e7488acddf';
+  var stationUrl = 'https://api.checkwx.com/station/' + icao + '?x-api-key=' + key;
+  var metarUrl   = 'https://api.checkwx.com/metar/' + icao + '/decoded?x-api-key=' + key;
+  var tafUrl     = 'https://api.checkwx.com/taf/' + icao + '?x-api-key=' + key;
+  Promise.all([
+    fetch(stationUrl).then(function(r){ return r.json(); }),
+    fetch(metarUrl).then(function(r){ return r.json(); }),
+    fetch(tafUrl).then(function(r){ return r.json(); })
+  ]).then(function(results) {
+    var station = results[0].data && results[0].data[0];
+    var metar   = results[1].data && results[1].data[0];
+    var taf     = results[2].data && results[2].data[0];
+    if (!station) {
+      wxEl.style.display = 'block';
+      wxEl.innerHTML = '<span style="color:#A32D2D;">Airport not found: ' + icao + '</span>';
+      btn.textContent = 'Fetch'; btn.disabled = false;
+      return;
+    }
+    var elev = station.elevation && station.elevation.feet;
+    if (elev != null) { elevEl.value = Math.round(elev); window.update && window.update(); }
+    var html = '';
+    var name = station.name || icao;
+    html += '<div style="font-weight:500;color:var(--text);margin-bottom:4px;">' + icao + ' — ' + name + '</div>';
+    if (elev != null) html += '<div style="color:var(--text3);font-size:11px;margin-bottom:6px;">Elevation auto-filled: ' + Math.round(elev) + ' ft</div>';
+    if (metar) {
+      var catBg     = { VFR: '#EAF3DE', MVFR: '#E6F1FB', IFR: '#FCEBEB', LIFR: '#FAEEDA' };
+      var catColors = { VFR: '#27500A', MVFR: '#0C447C', IFR: '#791F1F', LIFR: '#633806' };
+      var cat = metar.flight_category || '';
+      var wind = '';
+      if (metar.wind) {
+        if (!metar.wind.degrees && !metar.wind.speed_kts) wind = 'Calm';
+        else {
+          wind = metar.wind.degrees + '° at ' + metar.wind.speed_kts + ' kts';
+          if (metar.wind.gust_kts) wind += ' G' + metar.wind.gust_kts;
+        }
+      }
+      var vis  = metar.visibility ? metar.visibility.miles_float + ' sm' : '';
+      var ceil = '';
+      if (metar.ceiling) {
+        ceil = 'Ceiling ' + metar.ceiling.feet.toLocaleString() + ' ft';
+      } else if (metar.clouds && metar.clouds.length) {
+        var clr = metar.clouds.find(function(c){ return c.code==='CLR'||c.code==='SKC'||c.code==='CAVOK'; });
+        if (clr) ceil = 'Clear';
+      }
+      var temp = metar.temperature ? metar.temperature.celsius + '°C' : '';
+      var obs  = metar.observed ? metar.observed.substring(0,16).replace('T',' ') + 'Z' : '';
+      html += '<div style="margin-bottom:4px;">';
+      if (cat) html += '<span style="display:inline-block;padding:1px 8px;border-radius:10px;font-size:11px;font-weight:600;background:' + (catBg[cat]||'#eee') + ';color:' + (catColors[cat]||'#333') + ';margin-right:6px;">' + cat + '</span>';
+      if (wind) html += '<span>' + wind + '</span>';
+      html += '</div>';
+      var details = [vis ? vis + ' vis' : '', ceil, temp].filter(Boolean).join(' · ');
+      if (details) html += '<div style="margin-bottom:2px;">' + details + '</div>';
+      if (obs) html += '<div style="color:var(--text3);font-size:11px;">METAR observed ' + obs + '</div>';
+    } else {
+      html += '<div style="color:var(--text3);">No METAR available</div>';
+    }
+    if (taf && typeof taf === 'string') {
+      html += '<div style="margin-top:6px;padding-top:6px;border-top:0.5px solid var(--border);font-size:11px;color:var(--text3);word-break:break-all;">' + taf + '</div>';
+    }
+    wxEl.innerHTML = html;
+    wxEl.style.display = 'block';
+    btn.textContent = 'Fetch'; btn.disabled = false;
+  }).catch(function() {
+    wxEl.style.display = 'block';
+    wxEl.innerHTML = '<span style="color:#A32D2D;">Fetch failed — check connection</span>';
+    btn.textContent = 'Fetch'; btn.disabled = false;
+  });
+}
+
+function swapAirports() {
+  var depIcao = document.getElementById('dep-icao').value;
+  var arrIcao = document.getElementById('arr-icao').value;
+  var depElev = document.getElementById('dep-elev').value;
+  var arrElev = document.getElementById('arr-elev').value;
+  var depWx   = document.getElementById('dep-wx').innerHTML;
+  var depWxVis = document.getElementById('dep-wx').style.display;
+  var arrWx   = document.getElementById('arr-wx').innerHTML;
+  var arrWxVis = document.getElementById('arr-wx').style.display;
+
+  document.getElementById('dep-icao').value = arrIcao;
+  document.getElementById('arr-icao').value = depIcao;
+  document.getElementById('dep-elev').value = arrElev;
+  document.getElementById('arr-elev').value = depElev;
+  document.getElementById('dep-wx').innerHTML = arrWx;
+  document.getElementById('dep-wx').style.display = arrWxVis;
+  document.getElementById('arr-wx').innerHTML = depWx;
+  document.getElementById('arr-wx').style.display = depWxVis;
+
+  window.update && window.update();
+}
+</script>
+
+</body>
+</html>
+document.getElementById('dep-icao').addEventListener('keydown', function(e){ if(e.key==='Enter') fetchAirport('dep'); });
+document.getElementById('arr-icao').addEventListener('keydown', function(e){ if(e.key==='Enter') fetchAirport('arr'); });
+
 } // end init()
 </script>
 <script>
