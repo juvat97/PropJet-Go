@@ -736,23 +736,35 @@ function update(){
   const fobAfterTaxi = fob - taxiFuel;
   const fixedCosts  = reserveGal + altFuelGal;
 
-  // ── Apply real performance data to fields if user hasn't edited them ───────
+  // ── Apply real performance data to fields and resolve effective values ─────
   var currentIsaDev = (cachedWindsData && cachedWindsData.isaDev !== null) ? cachedWindsData.isaDev : 0;
+  var tasEl = document.getElementById('tas');
+  var ffEl  = document.getElementById('ff-cruise');
+  // tasEff/ffCruiseEff: start from what user has in the field right now
+  var tasEff      = tas;
+  var ffCruiseEff = ffCruise;
   if (typeof getRealPerfAtAlt !== 'undefined') {
     var realPerf = getRealPerfAtAlt(alt, currentIsaDev);
-    var tasEl = document.getElementById('tas');
-    var ffEl  = document.getElementById('ff-cruise');
     if (realPerf) {
-      if (!tasEl.dataset.userEdited) tasEl.value = Math.round(realPerf.tas);
-      if (!ffEl.dataset.userEdited)  ffEl.value  = realPerf.ff.toFixed(1);
+      if (!tasEl.dataset.userEdited) {
+        tasEff = realPerf.tas;
+        tasEl.value = Math.round(realPerf.tas);
+      }
+      if (!ffEl.dataset.userEdited) {
+        ffCruiseEff = realPerf.ff;
+        ffEl.value = realPerf.ff.toFixed(1);
+      }
     } else {
-      if (!tasEl.dataset.userEdited) tasEl.value = DEFAULTS.tas;
-      if (!ffEl.dataset.userEdited)  ffEl.value  = DEFAULTS['ff-cruise'];
+      if (!tasEl.dataset.userEdited) {
+        tasEff = DEFAULTS.tas;
+        tasEl.value = DEFAULTS.tas;
+      }
+      if (!ffEl.dataset.userEdited) {
+        ffCruiseEff = DEFAULTS['ff-cruise'];
+        ffEl.value = DEFAULTS['ff-cruise'];
+      }
     }
   }
-  // Always read TAS and FF directly from the fields — no parallel state
-  const tasEff      = parseFloat(document.getElementById('tas').value)      || DEFAULTS.tas;
-  const ffCruiseEff = parseFloat(document.getElementById('ff-cruise').value) || DEFAULTS['ff-cruise'];
 
   // ── Binary search for maxDist using effective FF/TAS ─────────────────────
   var distSlider = document.getElementById('dist');
