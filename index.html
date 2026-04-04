@@ -922,18 +922,21 @@ function resetDefaults(){
 }
 
 document.getElementById('reset-btn').addEventListener('click',resetDefaults);
-document.querySelectorAll('input,select').forEach(el=>el.addEventListener('input',update));
-// Store manual override only when user is actively focused on the field
+// TAS and FF listeners registered FIRST so overrides are set before update() runs
 document.getElementById('tas').addEventListener('input', function(){
-  if (document.activeElement === this) {
-    var v = parseFloat(this.value);
-    if (!isNaN(v)) tasOverride = v;
-  }
+  var v = parseFloat(this.value);
+  if (!isNaN(v)) tasOverride = v;
+  update();
 });
 document.getElementById('ff-cruise').addEventListener('input', function(){
-  if (document.activeElement === this) {
-    var v = parseFloat(this.value);
-    if (!isNaN(v)) ffOverride = v;
+  var v = parseFloat(this.value);
+  if (!isNaN(v)) ffOverride = v;
+  update();
+});
+// All other inputs trigger update normally (excluding tas and ff-cruise handled above)
+document.querySelectorAll('input,select').forEach(function(el){
+  if (el.id !== 'tas' && el.id !== 'ff-cruise') {
+    el.addEventListener('input', update);
   }
 });
 window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',update);
