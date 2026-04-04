@@ -744,12 +744,12 @@ function update(){
     if (realPerf) {
       ffCruiseEff = realPerf.ff;
       tasEff = realPerf.tas;
-      // Update input fields to reflect real data values so user sees what's being used
+      // Update input fields only when user is not actively editing them
       var tasInput = document.getElementById('tas');
       var ffInput  = document.getElementById('ff-cruise');
-      if (tasInput && Math.round(realPerf.tas) !== parseInt(tasInput.value))
+      if (tasInput && document.activeElement !== tasInput)
         tasInput.value = Math.round(realPerf.tas);
-      if (ffInput && parseFloat(realPerf.ff.toFixed(1)) !== parseFloat(ffInput.value))
+      if (ffInput && document.activeElement !== ffInput)
         ffInput.value = realPerf.ff.toFixed(1);
     }
   }
