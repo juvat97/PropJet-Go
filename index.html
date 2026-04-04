@@ -710,6 +710,8 @@ function compute(distNm, cAlt, depElev, arrElev, climbGph, cruiseGph, descGph,
 }
 
 let chart=null;
+let tasOverride = null;   // null = use real data; number = user's manual value
+let ffOverride  = null;   // null = use real data; number = user's manual value
 
 function update(){
   // ── Read all inputs ──────────────────────────────────────────────────────
@@ -738,14 +740,46 @@ function update(){
 
   // ── Resolve real performance overrides FIRST ────────────────────────────
   var currentIsaDev = (cachedWindsData && cachedWindsData.isaDev !== null) ? cachedWindsData.isaDev : 0;
-  var ffCruiseEff = ffCruise, tasEff = tas;
+  // Resolve TAS and FF: manual override > real data > default
+  var tasEff = tas;
+  var ffCruiseEff = ffCruise;
   if (typeof getRealPerfAtAlt !== 'undefined') {
     var realPerf = getRealPerfAtAlt(alt, currentIsaDev);
     if (realPerf) {
-      ffCruiseEff = realPerf.ff;
-      tasEff = realPerf.tas;
-      // Real data overrides are applied internally (tasEff/ffCruiseEff).
-      // Input fields are left unchanged so the user can always type freely.
+      // Apply real data to input fields and effective values
+      var tasInput = document.getElementById('tas');
+      var ffInput  = document.getElementById('ff-cruise');
+      // Only auto-fill if user hasn't manually overridden
+      if (tasOverride === null) {
+        tasEff = realPerf.tas;
+        if (tasInput) tasInput.value = Math.round(realPerf.tas);
+      } else {
+        tasEff = tasOverride;
+      }
+      if (ffOverride === null) {
+        ffCruiseEff = realPerf.ff;
+        if (ffInput) ffInput.value = realPerf.ff.toFixed(1);
+      } else {
+        ffCruiseEff = ffOverride;
+      }
+    } else {
+      // No real data: use manual override if set, otherwise reset to default
+      var tasInput = document.getElementById('tas');
+      var ffInput  = document.getElementById('ff-cruise');
+      if (tasOverride !== null) {
+        tasEff = tasOverride;
+        if (tasInput) tasInput.value = tasOverride;
+      } else {
+        tasEff = DEFAULTS.tas;
+        if (tasInput) tasInput.value = DEFAULTS.tas;
+      }
+      if (ffOverride !== null) {
+        ffCruiseEff = ffOverride;
+        if (ffInput) ffInput.value = ffOverride.toFixed(1);
+      } else {
+        ffCruiseEff = DEFAULTS['ff-cruise'];
+        if (ffInput) ffInput.value = DEFAULTS['ff-cruise'];
+      }
     }
   }
 
@@ -911,11 +945,22 @@ function resetDefaults(){
     airportCoords.dep=null; airportCoords.arr=null;
   }
   if(typeof updateAirportDistance !== 'undefined') updateAirportDistance();
+  tasOverride = null;
+  ffOverride  = null;
   update();
 }
 
 document.getElementById('reset-btn').addEventListener('click',resetDefaults);
 document.querySelectorAll('input,select').forEach(el=>el.addEventListener('input',update));
+// When user types in TAS or FF, store as manual override
+document.getElementById('tas').addEventListener('input', function(){
+  var v = parseFloat(this.value);
+  if (!isNaN(v)) tasOverride = v;
+});
+document.getElementById('ff-cruise').addEventListener('input', function(){
+  var v = parseFloat(this.value);
+  if (!isNaN(v)) ffOverride = v;
+});
 window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',update);
 update();
 
