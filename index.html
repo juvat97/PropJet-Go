@@ -736,14 +736,22 @@ function update(){
   const fobAfterTaxi = fob - taxiFuel;
   const fixedCosts  = reserveGal + altFuelGal;
 
-  // ── Binary search for maxDist FIRST, before anything else ────────────────
+  // ── Resolve real performance overrides FIRST ────────────────────────────
+  var currentIsaDev = (cachedWindsData && cachedWindsData.isaDev !== null) ? cachedWindsData.isaDev : 0;
+  var ffCruiseEff = ffCruise, tasEff = tas;
+  if (typeof getRealPerfAtAlt !== 'undefined') {
+    var realPerf = getRealPerfAtAlt(alt, currentIsaDev);
+    if (realPerf) { ffCruiseEff = realPerf.ff; tasEff = realPerf.tas; }
+  }
+
+  // ── Binary search for maxDist using effective FF/TAS ─────────────────────
   var distSlider = document.getElementById('dist');
   var maxDist = 0;
   if(fixedCosts <= fobAfterTaxi){
     var lo=25, hi=1400;
     for(var i=0; i<20; i++){
       var mid = Math.round((lo+hi)/2);
-      var rT  = compute(mid,alt,depElev,arrElev,ffClimb,ffCruise,ffDesc,climbRate,descRate,tas,ws,wd);
+      var rT  = compute(mid,alt,depElev,arrElev,ffClimb,ffCruiseEff,ffDesc,climbRate,descRate,tasEff,ws,wd);
       if(rT.totalGal+fixedCosts <= fobAfterTaxi){ maxDist=mid; lo=mid+1; } else { hi=mid-1; }
     }
   }
@@ -762,17 +770,11 @@ function update(){
   // ── Update hint displays ──────────────────────────────────────────────────
   document.getElementById('dist-out').textContent = dist+' nm';
   document.getElementById('alt-out').textContent  = alt.toLocaleString();
-  document.getElementById('gs-hint').textContent  = 'GS: '+Math.round(getGS(tas,ws,wd))+' kts';
+  document.getElementById('gs-hint').textContent  = 'GS: '+Math.round(getGS(tasEff,ws,wd))+' kts';
   document.getElementById('reserve-gal-hint').textContent = '= '+reserveGal+' gal ('+reserveMins+' min)';
   document.getElementById('alt-fuel-hint').textContent    = '= '+altFuelGal+' gal';
 
   // ── Compute flight ────────────────────────────────────────────────────────
-  // Apply real performance data override at cruise altitude if available
-  var ffCruiseEff = ffCruise, tasEff = tas;
-  if (typeof getRealPerfAtAlt !== 'undefined') {
-    var realPerf = getRealPerfAtAlt(alt);
-    if (realPerf) { ffCruiseEff = realPerf.ff; tasEff = realPerf.tas; }
-  }
   const r = compute(dist,alt,depElev,arrElev,ffClimb,ffCruiseEff,ffDesc,climbRate,descRate,tasEff,ws,wd);
 
   document.getElementById('r-cfuel').textContent       = r.climbGal;
@@ -837,7 +839,7 @@ function update(){
     var tasAdj = Math.max(160, cruiseKias / Math.sqrt(densityRatio(a)));
     // Override with real performance data if available
     if (typeof getRealPerfAtAlt !== 'undefined') {
-      var realPerf = getRealPerfAtAlt(a);
+      var realPerf = getRealPerfAtAlt(a, currentIsaDev);
       if (realPerf) { gph = realPerf.ff; tasAdj = realPerf.tas; }
     }
     // Use altitude-specific winds from cached fetch if available
@@ -1189,6 +1191,7 @@ function fetchWindsAloft() {
     cachedWindsData.mid = midData;
     cachedWindsData.arr = arrData;
     cachedWindsData.routeHdg = routeHdg;
+    cachedWindsData.isaDev = (typeof isaDeviation !== 'undefined' && isaDeviation !== null) ? isaDeviation : null;
     if (window.update) window.update();
 
     if (depData.length === 0) throw new Error('No data');
@@ -1272,6 +1275,7 @@ function fetchWindsAloft() {
       });
       if (deviationCount > 0) isaDeviation = deviationSum / deviationCount;
     }
+    cachedWindsData.isaDev = isaDeviation;
 
     // Auto-fill wind inputs
     document.getElementById('wind-spd').value = avgSpd;
@@ -1363,21 +1367,32 @@ function savePerfData(data) {
 
 // ── Interpolate real data at a given altitude ─────────────────────────────────
 // Returns {tas, ff} override if enough real data exists near altFt, else null
-function getRealPerfAtAlt(altFt) {
+function getRealPerfAtAlt(altFt, currentIsaDev) {
   var data = loadPerfData();
   if (!data.length) return null;
   var BANDWIDTH = 3000; // ft — data within this range contributes
+  var ISA_TOL   = 1.0;  // °C — points within this of closest ISA match are grouped
+  var isaDev = (currentIsaDev !== undefined && currentIsaDev !== null) ? currentIsaDev : 0;
+
+  // Step 1: candidates within altitude bandwidth
+  var candidates = data.filter(function(d){ return Math.abs(d.alt-altFt) <= BANDWIDTH; });
+  if (!candidates.length) return null;
+
+  // Step 2: find closest ISA deviation match
+  var minIsaDist = Math.min.apply(null, candidates.map(function(d){ return Math.abs(d.isa-isaDev); }));
+
+  // Step 3: select points within ISA_TOL of that minimum
+  var selected = candidates.filter(function(d){ return Math.abs(d.isa-isaDev)-minIsaDist <= ISA_TOL; });
+
+  // Step 4: weighted average by altitude proximity
   var tasSum=0, ffSum=0, wSum=0;
-  data.forEach(function(d) {
-    var dist = Math.abs(d.alt - altFt);
-    if (dist <= BANDWIDTH) {
-      var w = 1 - dist/BANDWIDTH; // linear weight: 1 at exact match, 0 at edge
-      tasSum += d.tas * w;
-      ffSum  += d.ff  * w;
-      wSum   += w;
-    }
+  selected.forEach(function(d) {
+    var w = 1 - Math.abs(d.alt-altFt)/BANDWIDTH;
+    tasSum += d.tas*w;
+    ffSum  += d.ff*w;
+    wSum   += w;
   });
-  if (wSum < 0.5) return null; // not enough data coverage
+  if (wSum < 0.3) return null;
   return { tas: tasSum/wSum, ff: ffSum/wSum };
 }
 
