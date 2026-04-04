@@ -342,54 +342,6 @@
   </div>
 
   <div class="card">
-    <div class="section-label">Fuel on board &amp; reserves</div>
-    <div class="row">
-      <label>Fuel on board (gal)</label>
-      <input type="number" id="fob" value="145" min="1" max="145" step="1">
-      <span class="hint">useable max 145</span>
-    </div>
-    <div class="row">
-      <label>Reserve fuel flow (gph)</label>
-      <input type="number" id="reserve-gph" value="33" min="5" max="60" step="0.5">
-      <span class="hint" id="reserve-gal-hint">= 33.0 gal (60 min)</span>
-    </div>
-    <div class="row">
-      <label>Reserve duration (min)</label>
-      <input type="number" id="reserve-mins" value="60" min="0" max="120" step="5">
-    </div>
-    <div class="row">
-      <label>Taxi fuel (gal)</label>
-      <input type="number" id="taxi-fuel" value="3" min="0" max="20" step="1">
-      <span class="hint">added to Min takeoff fuel</span>
-    </div>
-    <div class="row">
-      <label>Alternate distance (nm)</label>
-      <input type="number" id="alt-dist" value="0" min="0" max="300" step="5">
-      <span class="hint" id="alt-fuel-hint">= 0.0 gal</span>
-    </div>
-    <p class="hint-text" style="margin-top:0.5rem;">Alternate fuel at 33 gph / 250 KIAS / 10,000 ft MSL (~291 KTAS, no wind). Taxi/contingency burned before takeoff (engine start + taxi to runway).</p>
-  </div>
-
-  <div class="card">
-    <div class="section-label">Flight inputs</div>
-    <div class="row">
-      <label>Leg distance (nm)</label>
-      <input type="range" id="dist" min="25" max="1400" value="500" step="5">
-      <span class="val" id="dist-out">500 nm</span>
-    </div>
-    <div class="row">
-      <label>Target cruise altitude (ft)</label>
-      <input type="range" id="alt" min="5000" max="28000" value="17000" step="1000">
-      <span class="val" id="alt-out">17,000</span>
-    </div>
-  </div>
-
-  <div id="margin-summary-bar" style="display:flex;align-items:center;justify-content:space-between;padding:6px 4px 2px;margin-bottom:0.25rem;">
-    <span style="font-size:13px;color:var(--text2);">Margin above reserves</span>
-    <span id="margin-summary-val" style="font-size:13px;font-weight:500;">—</span>
-  </div>
-
-  <div class="card">
     <div class="section-label">Winds aloft at cruise altitude</div>
     <div style="display:flex;gap:8px;align-items:flex-end;margin-bottom:0.75rem;">
       <div style="flex:1;">
@@ -415,6 +367,49 @@
   </div>
 
   <div class="card">
+    <div class="section-label">Fuel on board &amp; reserves</div>
+    <div class="row">
+      <label>Fuel on board (gal)</label>
+      <input type="number" id="fob" value="145" min="1" max="145" step="1">
+      <span class="hint">useable max 145</span>
+    </div>
+    <div class="row">
+      <label>Reserve fuel flow (gph)</label>
+      <input type="number" id="reserve-gph" value="38" min="5" max="60" step="0.5">
+      <span class="hint" id="reserve-gal-hint">= 33.0 gal (60 min)</span>
+    </div>
+    <div class="row">
+      <label>Reserve duration (min)</label>
+      <input type="number" id="reserve-mins" value="60" min="0" max="120" step="5">
+    </div>
+    <div class="row">
+      <label>Taxi fuel (gal)</label>
+      <input type="number" id="taxi-fuel" value="3" min="0" max="20" step="1">
+      <span class="hint">added to Min takeoff fuel</span>
+    </div>
+    <div class="row">
+      <label>Alternate distance (nm)</label>
+      <input type="number" id="alt-dist" value="0" min="0" max="300" step="5">
+      <span class="hint" id="alt-fuel-hint">= 0.0 gal</span>
+    </div>
+    <p class="hint-text" style="margin-top:0.5rem;">Alternate fuel at 38 gph / 220 KIAS / 10,000 ft MSL (~256 KTAS, no wind). Taxi/contingency burned before takeoff (engine start + taxi to runway).</p>
+  </div>
+
+  <div class="card">
+    <div class="section-label">Flight inputs</div>
+    <div class="row">
+      <label>Leg distance (nm)</label>
+      <input type="range" id="dist" min="25" max="1400" value="500" step="5">
+      <span class="val" id="dist-out">500 nm</span>
+    </div>
+    <div class="row">
+      <label>Target cruise altitude (ft)</label>
+      <input type="range" id="alt" min="5000" max="28000" value="17000" step="1000">
+      <span class="val" id="alt-out">17,000</span>
+    </div>
+  </div>
+
+  <div class="card">
     <div class="section-label">M601 fuel flows &amp; performance</div>
     <div class="row">
       <label>Climb fuel flow (gph)</label>
@@ -423,7 +418,7 @@
     </div>
     <div class="row">
       <label>Cruise fuel flow (gph)</label>
-      <input type="number" id="ff-cruise" value="28" min="10" max="60" step="0.5">
+      <input type="number" id="ff-cruise" value="32" min="10" max="60" step="0.5">
       <span class="hint">at target altitude</span>
     </div>
     <div class="row">
@@ -508,7 +503,7 @@
     <div class="chart-wrap">
       <canvas id="fuelChart"></canvas>
     </div>
-    <p class="note">Min takeoff fuel = trip + reserve + alternate. Taxi fuel is deducted from FOB before trip planning. Fuel at landing = FOB minus trip fuel. Margin = fuel at landing minus reserve minus alternate. Descent distance capped at available leg distance after climb. Alternate at 33 gph / 250 KIAS / 10,000 ft ISA (~291 KTAS), no wind applied. Cruise FF scaled from M601 flat-rating model — update with actual POH data. All fuel in U.S. gallons.</p>
+    <p class="note">Min takeoff fuel = trip + reserve + alternate. Taxi fuel is deducted from FOB before trip planning. Fuel at landing = FOB minus trip fuel. Margin = fuel at landing minus reserve minus alternate. Descent distance capped at available leg distance after climb. Alternate at 38 gph / 220 KIAS / 10,000 ft ISA (~256 KTAS), no wind applied. Cruise FF scaled from M601 flat-rating model — update with actual POH data. All fuel in U.S. gallons.</p>
   </div>
 
 </div>
@@ -516,18 +511,18 @@
 <script>
 function init() {
 const DEFAULTS = {
-  fob: 145, 'reserve-gph': 33, 'reserve-mins': 60, 'taxi-fuel': 3,
+  fob: 145, 'reserve-gph': 38, 'reserve-mins': 60, 'taxi-fuel': 3,
   'alt-dist': 0, 'dep-elev': 1000, 'arr-elev': 1000,
   dist: 500, alt: 17000, 'wind-spd': 0,
-  'ff-climb': 37, 'ff-cruise': 28, 'ff-desc': 10,
+  'ff-climb': 37, 'ff-cruise': 32, 'ff-desc': 10,
   'climb-rate': 1400, 'desc-rate': 1000, tas: 280,
   'dep-icao': 'KGYR', 'arr-icao': 'KAFO'
 };
 
 const alts = [5000,8000,10000,12000,14000,17000,19000,21000,23000,25000,28000];
 const altLabels = alts.map(a => a >= 18000 ? 'FL'+(a/100) : (a/1000)+'k');
-const ALT_CRUISE_GPH = 33;
-const ALT_KTAS = 291;
+const ALT_CRUISE_GPH = 38;
+const ALT_KTAS = 256;
 
 function isaTemp(altFt) {
   const altM = altFt * 0.3048;
@@ -642,13 +637,13 @@ function update(){
   const ws         = parseFloat(document.getElementById('wind-spd').value)||0;
   const wd         = document.getElementById('wind-dir').value;
   const ffClimb    = parseFloat(document.getElementById('ff-climb').value)||37;
-  const ffCruise   = parseFloat(document.getElementById('ff-cruise').value)||28;
+  const ffCruise   = parseFloat(document.getElementById('ff-cruise').value)||32;
   const ffDesc     = parseFloat(document.getElementById('ff-desc').value)||10;
   const climbRate  = parseFloat(document.getElementById('climb-rate').value)||1400;
   const descRate   = parseFloat(document.getElementById('desc-rate').value)||1000;
   const tas        = parseFloat(document.getElementById('tas').value)||280;
   const fob        = parseFloat(document.getElementById('fob').value)||145;
-  const reserveGph = parseFloat(document.getElementById('reserve-gph').value)||33;
+  const reserveGph = parseFloat(document.getElementById('reserve-gph').value)||38;
   const reserveMinsRaw = document.getElementById('reserve-mins').value;
   const reserveMins = (reserveMinsRaw===''||isNaN(parseFloat(reserveMinsRaw))) ? 60 : parseFloat(reserveMinsRaw);
   const taxiFuel   = parseFloat(document.getElementById('taxi-fuel').value)||0;
@@ -725,8 +720,10 @@ function update(){
 
   // ── Margin summary bar ────────────────────────────────────────────────────
   var mSummaryVal = document.getElementById('margin-summary-val');
-  mSummaryVal.textContent = (margin>=0?'+':'')+margin+' gal';
-  mSummaryVal.style.color = margin<0?'#A32D2D':margin<10?'#854F0B':'#27500A';
+  if(mSummaryVal){
+    mSummaryVal.textContent = (margin>=0?'+':'')+margin+' gal';
+    mSummaryVal.style.color = margin<0?'#A32D2D':margin<10?'#854F0B':'#27500A';
+  }
 
   // ── Warnings ──────────────────────────────────────────────────────────────
   const warns = [];
@@ -753,8 +750,8 @@ function update(){
   const gc    = isDark?'rgba(255,255,255,0.06)':'rgba(0,0,0,0.06)';
   const bgColors = alts.map((a,i)=>{
     if(fuelData[i]===null)    return isDark?'#444441':'#B4B2A9';
-    if(fuelData[i]===minF)    return isDark?'#3B6D11':'#639922';
     if(a===alt)               return isDark?'#0C447C':'#185FA5';
+    if(fuelData[i]===minF)    return isDark?'#3B6D11':'#639922';
     return isDark?'#0c2d4a':'#B5D4F4';
   });
   const dispData = fuelData.map(f=>f===null?0:f);
@@ -959,6 +956,23 @@ function uvToWind(u, v) {
   return { spd: spd, dir: dir };
 }
 
+function interpTempAtAlt(altFt, windData) {
+  // Linear interpolation of temperature between bracketing pressure levels
+  if (!windData || windData.length === 0) return null;
+  var data = windData.filter(function(d){ return d.temp != null; });
+  if (data.length === 0) return null;
+  if (altFt <= data[0].ft) return data[0].temp;
+  if (altFt >= data[data.length-1].ft) return data[data.length-1].temp;
+  for (var i=0; i<data.length-1; i++) {
+    var lo=data[i], hi=data[i+1];
+    if (altFt>=lo.ft && altFt<=hi.ft) {
+      var t=(altFt-lo.ft)/(hi.ft-lo.ft);
+      return lo.temp + t*(hi.temp-lo.temp);
+    }
+  }
+  return data[data.length-1].temp;
+}
+
 function interpWindAtAlt(altFt, windData) {
   // windData: [{ft, spd, dir}, ...] sorted by ft ascending
   // Interpolate u/v linearly between bracketing levels
@@ -1004,20 +1018,22 @@ function buildOpenMeteoUrl(lat, lon) {
   var hPas = WIND_LEVELS.map(function(l){return l.hPa;});
   var wsV = hPas.map(function(h){return 'wind_speed_'+h+'hPa';}).join(',');
   var wdV = hPas.map(function(h){return 'wind_direction_'+h+'hPa';}).join(',');
+  var tV  = hPas.map(function(h){return 'temperature_'+h+'hPa';}).join(',');
   return 'https://api.open-meteo.com/v1/forecast'
     +'?latitude='+lat.toFixed(4)+'&longitude='+lon.toFixed(4)
-    +'&hourly='+wsV+','+wdV
+    +'&hourly='+wsV+','+wdV+','+tV
     +'&wind_speed_unit=kn&forecast_hours=2&models=gfs_seamless';
 }
 
 function parseOpenMeteoResponse(data) {
-  // Returns [{ft, spd, dir}, ...] sorted ft ascending, for index 0 (current hour)
+  // Returns [{ft, spd, dir, temp}, ...] sorted ft ascending, for index 0 (current hour)
   var h = data.hourly;
   if (!h) return [];
   return WIND_LEVELS.map(function(lev) {
-    var spd = h['wind_speed_'+lev.hPa+'hPa'][0];
-    var dir = h['wind_direction_'+lev.hPa+'hPa'][0];
-    return {ft: lev.ft, spd: spd||0, dir: dir||0};
+    var spd  = h['wind_speed_'+lev.hPa+'hPa'][0];
+    var dir  = h['wind_direction_'+lev.hPa+'hPa'][0];
+    var temp = h['temperature_'+lev.hPa+'hPa'] ? h['temperature_'+lev.hPa+'hPa'][0] : null;
+    return {ft: lev.ft, spd: spd||0, dir: dir||0, temp: temp};
   }).sort(function(a,b){return a.ft-b.ft;});
 }
 
@@ -1115,12 +1131,31 @@ function fetchWindsAloft() {
       var w = interpWindAtAlt(wp.alt, spatialData);
       var hw = headwindComp(w.spd, w.dir, routeHdg);
       totalHW += hw;
-      details.push({name:wp.name, alt:wp.alt, spd:w.spd, dir:w.dir, hw:hw});
+      var oatTemp = interpTempAtAlt(wp.alt, spatialData);
+      details.push({name:wp.name, frac:wp.frac, alt:wp.alt, spd:w.spd, dir:w.dir, hw:hw, oat:oatTemp});
     });
 
     var avgHW  = totalHW / waypoints.length;
     var avgSpd = Math.abs(Math.round(avgHW));
     var avgDir = avgHW >= 0 ? 'head' : 'tail';
+
+    // OAT vs ISA deviation averaged across the 5 cruise waypoints
+    var cruiseWaypoints = details.filter(function(d){ return d.name.indexOf('Cruise') !== -1; });
+    var isaDeviation = null;
+    if (cruiseWaypoints.length > 0) {
+      var deviationSum = 0;
+      var deviationCount = 0;
+      cruiseWaypoints.forEach(function(wp) {
+        // oat already computed and stored in details during the main loop
+        if (wp.oat !== null && wp.oat !== undefined) {
+          var altM = wp.alt * 0.3048;
+          var isaStd = altM <= 11000 ? 15.0 - 6.5*(altM/1000) : -56.5;
+          deviationSum += (wp.oat - isaStd);
+          deviationCount++;
+        }
+      });
+      if (deviationCount > 0) isaDeviation = deviationSum / deviationCount;
+    }
 
     // Auto-fill wind inputs
     document.getElementById('wind-spd').value = avgSpd;
@@ -1128,9 +1163,15 @@ function fetchWindsAloft() {
     window.update && window.update();
 
     // Build display
+    var isaStr = '';
+    if (isaDeviation !== null) {
+      var sign = isaDeviation >= 0 ? '+' : '';
+      isaStr = ' · ISA ' + sign + isaDeviation.toFixed(1) + '°C';
+    }
     var html = '<div style="font-weight:500;color:var(--text);margin-bottom:6px;">'
       +'Route '+Math.round(routeHdg)+'° true · avg '
       +avgSpd+' kts '+(avgHW>=0?'headwind':'tailwind')
+      +isaStr
       +'</div>';
     html += '<table style="width:100%;border-collapse:collapse;font-size:11px;">';
     html += '<tr style="color:var(--text3);"><td style="padding:1px 4px 1px 0">Waypoint</td>'
