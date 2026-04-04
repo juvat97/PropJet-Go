@@ -744,13 +744,8 @@ function update(){
     if (realPerf) {
       ffCruiseEff = realPerf.ff;
       tasEff = realPerf.tas;
-      // Update input fields only when user is not actively editing them
-      var tasInput = document.getElementById('tas');
-      var ffInput  = document.getElementById('ff-cruise');
-      if (tasInput && document.activeElement !== tasInput)
-        tasInput.value = Math.round(realPerf.tas);
-      if (ffInput && document.activeElement !== ffInput)
-        ffInput.value = realPerf.ff.toFixed(1);
+      // Real data overrides are applied internally (tasEff/ffCruiseEff).
+      // Input fields are left unchanged so the user can always type freely.
     }
   }
 
