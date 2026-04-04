@@ -625,23 +625,14 @@ function fmtTime(m){
   return h+'+'+String(t%60).padStart(2,'0');
 }
 function cruiseGphAtAlt(altFt,anchorAlt,anchorGph){
-  // M601 model: efficiency improves ~0.8%/1000ft up to FL190 (flat-rating benefit)
-  // Above FL190 efficiency degrades ~1.8%/1000ft (ITT limiting)
-  // Fuel burn = anchorGph * factor, so lower factor = less fuel = more efficient
+  // Linear model: FF improves continuously with altitude at a constant rate.
+  // Going up:   0.57%/1000ft improvement (matches ~30gph at FL280 from FL170/32gph anchor)
+  // Going down: 0.80%/1000ft degradation (denser air, lower efficiency)
   var f;
-  if(altFt<=19000&&anchorAlt<=19000){
-    // Both below FL190: linear improvement going up
-    f=1-(altFt-anchorAlt)/1000*0.008;
-  } else if(altFt>19000&&anchorAlt>19000){
-    // Both above FL190: linear degradation going up
-    f=1+(altFt-anchorAlt)/1000*0.018;
-  } else if(altFt<=19000&&anchorAlt>19000){
-    // Anchor above FL190, comparing to lower alt: below FL190 is more efficient than anchor
-    f=1+(anchorAlt-19000)/1000*0.018+(19000-altFt)/1000*0.008;
+  if(altFt >= anchorAlt){
+    f = 1 - (altFt-anchorAlt)/1000*0.0057;
   } else {
-    // altFt>19000, anchorAlt<=19000: crossing FL190 going up
-    // Improvement from anchorAlt to FL190, then degradation from FL190 to altFt
-    f=1-(19000-anchorAlt)/1000*0.008+(altFt-19000)/1000*0.018;
+    f = 1 + (anchorAlt-altFt)/1000*0.008;
   }
   return anchorGph*Math.max(0.6,Math.min(1.5,f));
 }
@@ -825,11 +816,21 @@ function update(){
 
   // ── Altitude comparison chart ─────────────────────────────────────────────
   const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-  // Derive cruise KIAS from current TAS at current alt, then compute ISA TAS at each chart alt
+  // Chart TAS: linear above anchor (thrust-limited, caps at 285 KTAS at FL280),
+  // ISA-based below anchor (physically correct when thrust is not limiting)
   const cruiseKias = tas * Math.sqrt(densityRatio(alt));
+  const TAS_CEIL = 285, TAS_CEIL_ALT = 28000;
+  const tasRateAbove = alt < TAS_CEIL_ALT ? (TAS_CEIL - tas) / Math.max(1, TAS_CEIL_ALT - alt) * 1000 : 0;
   const fuelData = alts.map(a=>{
     var gph    = cruiseGphAtAlt(a,alt,ffCruise);
-    var tasAdj = Math.max(160, cruiseKias / Math.sqrt(densityRatio(a)));
+    var tasAdj;
+    if (a >= alt) {
+      // Above anchor: linear from anchor TAS, capped at TAS_CEIL
+      tasAdj = Math.min(TAS_CEIL, tas + (a-alt)/1000*tasRateAbove);
+    } else {
+      // Below anchor: ISA-based (same KIAS, different density)
+      tasAdj = Math.max(160, cruiseKias / Math.sqrt(densityRatio(a)));
+    }
     // Override with real performance data if available
     if (typeof getRealPerfAtAlt !== 'undefined') {
       var realPerf = getRealPerfAtAlt(a, currentIsaDev);
@@ -1556,13 +1557,21 @@ function renderPerfChart() {
     return Math.pow(216.65/T_sl,4.256)*Math.exp(-(altM-11000)/6341.6);
   }
   var cruiseKias = ANCHOR_TAS*Math.sqrt(densityRatioJS(ANCHOR_ALT));
+  var TAS_CEIL = 285, TAS_CEIL_ALT = 28000;
+  var tasRateAbove = ANCHOR_ALT < TAS_CEIL_ALT
+    ? (TAS_CEIL - ANCHOR_TAS) / (TAS_CEIL_ALT - ANCHOR_ALT) * 1000 : 0;
   var genericTas = chartAlts.map(function(a){
-    return Math.max(160, cruiseKias/Math.sqrt(densityRatioJS(a)));
+    if (a >= ANCHOR_ALT) {
+      return Math.min(TAS_CEIL, ANCHOR_TAS + (a-ANCHOR_ALT)/1000*tasRateAbove);
+    } else {
+      return Math.max(160, cruiseKias/Math.sqrt(densityRatioJS(a)));
+    }
   });
   function cruiseGphModel(altFt) {
-    if(altFt<=19000&&ANCHOR_ALT<=19000) return ANCHOR_GPH*(1-(altFt-ANCHOR_ALT)/1000*0.008);
-    if(altFt>19000&&ANCHOR_ALT<=19000)  return ANCHOR_GPH*(1-(19000-ANCHOR_ALT)/1000*0.008+(altFt-19000)/1000*0.018);
-    return ANCHOR_GPH;
+    var f = altFt >= ANCHOR_ALT
+      ? 1 - (altFt-ANCHOR_ALT)/1000*0.0057
+      : 1 + (ANCHOR_ALT-altFt)/1000*0.008;
+    return ANCHOR_GPH*Math.max(0.6,Math.min(1.5,f));
   }
   var genericFf = chartAlts.map(function(a){ return +Math.max(0.6*ANCHOR_GPH,Math.min(1.5*ANCHOR_GPH,cruiseGphModel(a))).toFixed(1); });
 
