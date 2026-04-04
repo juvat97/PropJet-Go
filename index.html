@@ -755,10 +755,10 @@ function update(){
   }
   maxDist = Math.min(maxDist, 1400);
 
-  // Update slider max and clamp value — no recursion needed
-  if(maxDist > 0){
-    distSlider.max = maxDist;
-    if(parseInt(distSlider.value) > maxDist) distSlider.value = maxDist;
+  // Clamp slider VALUE if it exceeds fuel range, but never change slider.max
+  // (changing slider.max moves the thumb visually even when value stays the same)
+  if(maxDist > 0 && parseInt(distSlider.value) > maxDist){
+    distSlider.value = maxDist;
   }
   // else: don't touch slider at all — warning will appear below
 
