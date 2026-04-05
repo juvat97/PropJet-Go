@@ -980,6 +980,7 @@ function update(){
     totalMins:  r.totalMins,
   };
   try { localStorage.setItem(PLAN_KEY, JSON.stringify(lastPlan)); } catch(e) {}
+  window.lastPlan = lastPlan;
 
   // ── Fuel planning ─────────────────────────────────────────────────────────
   const minStart = +(r.totalGal+fixedCosts).toFixed(1);
@@ -1201,6 +1202,7 @@ var lastPlan = (function(){
 window.setDescMode = setDescMode;
 window.update = update;
 window.applyRealPerfToFields = applyRealPerfToFields;
+window.lastPlan = lastPlan;
 
 function applyRealPerfToFields(altFt) {
   var tasEl = document.getElementById('tas');
@@ -1999,7 +2001,7 @@ function populateLogForm() {
 }
 
 function updateLogPlanned() {
-  var p = (typeof lastPlan !== 'undefined') ? lastPlan : null;
+  var p = (typeof window.lastPlan !== 'undefined') ? window.lastPlan : null;
   document.getElementById('log-plan-alt').textContent = p ? p.alt.toLocaleString() : '—';
   document.getElementById('log-plan-tas').textContent = p ? p.tas : '—';
   document.getElementById('log-plan-ff').textContent  = p ? p.ff  : '—';
@@ -2007,7 +2009,7 @@ function updateLogPlanned() {
 }
 
 function updateLogDeltas() {
-  var p = (typeof lastPlan !== 'undefined') ? lastPlan : null;
+  var p = (typeof window.lastPlan !== 'undefined') ? window.lastPlan : null;
   function delta(plannedEl, actualId, suffix, decimals) {
     var actEl = document.getElementById(actualId);
     var deltaEl = document.getElementById('log-delta-' + suffix);
