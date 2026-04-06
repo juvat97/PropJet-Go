@@ -1150,7 +1150,7 @@ document.getElementById('alt').addEventListener('input', function(){
 });
 // All other inputs
 document.querySelectorAll('input,select').forEach(function(el){
-  if (el.id !== 'tas' && el.id !== 'ff-cruise' && el.id !== 'alt') {
+  if (el.id !== 'tas' && el.id !== 'ff-cruise' && el.id !== 'alt' && el.id !== 'fob') {
     el.addEventListener('input', update);
   }
 });
@@ -1161,6 +1161,34 @@ applyRealPerfToFields(DEFAULTS.alt);
 
 document.getElementById('dep-icao').addEventListener('keydown', function(e){ if(e.key==='Enter') fetchAirport('dep'); });
 document.getElementById('arr-icao').addEventListener('keydown', function(e){ if(e.key==='Enter') fetchAirport('arr'); });
+document.getElementById('alt-icao') && document.getElementById('alt-icao').addEventListener('keydown', function(e){ if(e.key==='Enter') fetchAltAirport(); });
+
+// Alternate tab input listeners
+['alt-dist-slider','alt-alt-slider','alt-wind-spd','alt-wind-dir','alt-elev'].forEach(function(id){
+  var el=document.getElementById(id);
+  if(el) el.addEventListener('input', function(){
+    // Re-run auto-fill winds when alt slider changes
+    if(id==='alt-alt-slider') autoFillAltWinds();
+    refreshAltPlan();
+  });
+});
+
+// FOB sync: when main FOB changes, update alt-fob field
+document.getElementById('fob').addEventListener('input', function(){
+  var altFobEl=document.getElementById('alt-fob');
+  if(altFobEl) altFobEl.value=this.value;
+  update();
+});
+
+// FOB sync: when alt-fob changes, update main FOB field
+document.getElementById('alt-fob') && document.getElementById('alt-fob').addEventListener('input', function(){
+  var mainFobEl=document.getElementById('fob');
+  if(mainFobEl && mainFobEl.value!==this.value){
+    mainFobEl.value=this.value;
+    update();
+  }
+  refreshAltPlan();
+});
 
 // Initialize descent toggle visual to Eco on first load
 descModeOverride = 'eco';
@@ -1199,8 +1227,10 @@ var lastPlan = (function(){
   catch(e) { return null; }
 })();
 
+window.compute = compute;
 window.setDescMode = setDescMode;
 window.update = update;
+window.fmtTime = fmtTime;
 window.applyRealPerfToFields = applyRealPerfToFields;
 window.lastPlan = lastPlan;
 
@@ -1705,15 +1735,18 @@ function showTab(name) {
   document.getElementById('tab-perf').style.display = name==='perf' ? 'block' : 'none';
   var logTab = document.getElementById('tab-log');
   if (logTab) logTab.style.display = name==='log' ? 'block' : 'none';
+  var altTab = document.getElementById('tab-altplan');
+  if (altTab) altTab.style.display = name==='altplan' ? 'block' : 'none';
   // Update bottom nav active state
-  ['plan','perf','log'].forEach(function(t) {
+  ['plan','perf','log','altplan'].forEach(function(t) {
     var btn = document.getElementById('tab-'+t+'-btn');
     if (btn) btn.classList.toggle('active', t===name);
   });
   var resetBtn = document.getElementById('reset-btn');
-  if (resetBtn) resetBtn.style.display = (name==='perf'||name==='log') ? 'none' : '';
+  if (resetBtn) resetBtn.style.display = (name==='perf'||name==='log'||name==='altplan') ? 'none' : '';
   if (name==='perf') refreshPerfPage();
   if (name==='log') { populateLogForm(); refreshLogPage(); }
+  if (name==='altplan') refreshAltPlan();
 }
 
 // ── Save a data point ─────────────────────────────────────────────────────────
@@ -1908,6 +1941,249 @@ function renderPerfChart() {
     });
   }
 }
+
+// ════════════════════════════════════════════════════════════════════════════
+// ALTERNATE AIRPORT PLANNING
+// ════════════════════════════════════════════════════════════════════════════
+
+var altAirportCoords = null;  // {lat, lon} of alternate airport
+
+// ── Fetch alternate airport data ─────────────────────────────────────────────
+function fetchAltAirport() {
+  var icaoEl = document.getElementById('alt-icao');
+  var elevEl = document.getElementById('alt-elev');
+  var wxEl   = document.getElementById('alt-wx');
+  var btn    = document.getElementById('alt-fetch-btn');
+  if (!icaoEl) return;
+  var icao   = icaoEl.value.trim().toUpperCase();
+  if (icao.length < 3) {
+    wxEl.style.display='block';
+    wxEl.innerHTML='<span style="color:#A32D2D;">Enter a valid ICAO identifier</span>';
+    return;
+  }
+  btn.textContent='…'; btn.disabled=true;
+  var key = 'd95164f28f8c457099dca7e7488acddf';
+  Promise.all([
+    fetch('https://api.checkwx.com/station/'+icao+'?x-api-key='+key).then(function(r){return r.json();}),
+    fetch('https://api.checkwx.com/metar/'+icao+'/decoded?x-api-key='+key).then(function(r){return r.json();})
+  ]).then(function(results) {
+    var station=results[0].data&&results[0].data[0];
+    var metar  =results[1].data&&results[1].data[0];
+    if (!station) {
+      wxEl.style.display='block';
+      wxEl.innerHTML='<span style="color:#A32D2D;">Airport not found: '+icao+'</span>';
+      btn.textContent='Load'; btn.disabled=false; return;
+    }
+    var elev=station.elevation&&station.elevation.feet;
+    if (elev!=null) { elevEl.value=Math.round(elev); }
+    if (station.geometry&&station.geometry.coordinates) {
+      altAirportCoords={lon:station.geometry.coordinates[0],lat:station.geometry.coordinates[1]};
+    } else if (station.latitude&&station.longitude) {
+      altAirportCoords={lat:station.latitude,lon:station.longitude};
+    }
+    // Auto-calculate distance from destination to alternate
+    if (altAirportCoords && typeof airportCoords !== 'undefined' && airportCoords.arr) {
+      var nm = haversineNm(airportCoords.arr.lat,airportCoords.arr.lon,
+                           altAirportCoords.lat,altAirportCoords.lon);
+      var slider=document.getElementById('alt-dist-slider');
+      if (slider) slider.value=Math.min(500,Math.max(10,Math.round(nm/5)*5));
+      var distDisp=document.getElementById('alt-dist-display');
+      if (distDisp) {
+        distDisp.textContent='Auto-calculated from arrival airport: '+Math.round(nm)+' nm';
+        distDisp.style.display='block';
+      }
+    }
+    // Auto-populate winds from cached data if available
+    autoFillAltWinds();
+    // Build wx display
+    var html='';
+    var name=station.name||icao;
+    html+='<div style="font-weight:500;color:var(--text);margin-bottom:4px;">'+icao+' — '+name+'</div>';
+    if (elev!=null) html+='<div style="color:var(--text3);font-size:11px;margin-bottom:6px;">Elevation: '+Math.round(elev)+' ft</div>';
+    if (metar) {
+      var catBg={VFR:'#EAF3DE',MVFR:'#E6F1FB',IFR:'#FCEBEB',LIFR:'#FAEEDA'};
+      var catColors={VFR:'#27500A',MVFR:'#0C447C',IFR:'#791F1F',LIFR:'#633806'};
+      var cat=metar.flight_category||'';
+      var wind='';
+      if (metar.wind) {
+        if (!metar.wind.degrees&&!metar.wind.speed_kts) wind='Calm';
+        else {
+          wind=metar.wind.degrees+'° at '+metar.wind.speed_kts+' kts';
+          if (metar.wind.gust_kts) wind+=' G'+metar.wind.gust_kts;
+        }
+      }
+      var vis=metar.visibility?metar.visibility.miles_float+' sm':'';
+      var ceil='';
+      if (metar.ceiling) ceil='Ceiling '+metar.ceiling.feet.toLocaleString()+' ft';
+      else if (metar.clouds&&metar.clouds.length) {
+        var clr=metar.clouds.find(function(c){return c.code==='CLR'||c.code==='SKC'||c.code==='CAVOK';});
+        if (clr) ceil='Clear';
+      }
+      var temp=metar.temperature?metar.temperature.celsius+'°C':'';
+      var obs=metar.observed?metar.observed.substring(0,16).replace('T',' ')+'Z':'';
+      html+='<div style="margin-bottom:4px;">';
+      if (cat) html+='<span style="display:inline-block;padding:1px 8px;border-radius:10px;font-size:11px;font-weight:600;background:'+(catBg[cat]||'#eee')+';color:'+(catColors[cat]||'#333')+';margin-right:6px;">'+cat+'</span>';
+      if (wind) html+='<span>'+wind+'</span>';
+      html+='</div>';
+      var details=[vis?vis+' vis':'',ceil,temp].filter(Boolean).join(' · ');
+      if (details) html+='<div>'+details+'</div>';
+      if (obs) html+='<div style="color:var(--text3);font-size:11px;margin-top:2px;">Observed '+obs+'</div>';
+    } else { html+='<div style="color:var(--text3);">No METAR available</div>'; }
+    wxEl.innerHTML=html; wxEl.style.display='block';
+    btn.textContent='Load'; btn.disabled=false;
+    refreshAltPlan();
+  }).catch(function() {
+    wxEl.style.display='block';
+    wxEl.innerHTML='<span style="color:#A32D2D;">Load failed — check connection</span>';
+    btn.textContent='Load'; btn.disabled=false;
+  });
+}
+
+// ── Auto-fill alternate winds from cached winds data ─────────────────────────
+function autoFillAltWinds() {
+  if (typeof cachedWindsData === 'undefined' || !cachedWindsData.arr) return;
+  var altAlt = parseInt(document.getElementById('alt-alt-slider').value)||10000;
+  try {
+    var arrData = cachedWindsData.arr;
+    var w = interpWindAtAlt(altAlt, arrData);
+    var routeHdg = cachedWindsData.routeHdg || 0;
+    var hw = headwindComp(w.spd, w.dir, routeHdg);
+    document.getElementById('alt-wind-spd').value = Math.round(Math.abs(hw));
+    document.getElementById('alt-wind-dir').value  = hw >= 0 ? 'head' : 'tail';
+  } catch(e) {}
+}
+
+// ── Main alternate plan refresh ───────────────────────────────────────────────
+function refreshAltPlan() {
+  // Read inputs
+  var altDist   = parseInt(document.getElementById('alt-dist-slider').value)||75;
+  var altAlt    = parseInt(document.getElementById('alt-alt-slider').value)||10000;
+  var altWs     = parseFloat(document.getElementById('alt-wind-spd').value)||0;
+  var altWd     = document.getElementById('alt-wind-dir').value;
+  var altFob    = parseFloat(document.getElementById('alt-fob').value)||145;
+  var altElev   = parseFloat(document.getElementById('alt-elev').value)||1000;
+
+  // Update display labels
+  document.getElementById('alt-dist-out').textContent = altDist+' nm';
+  document.getElementById('alt-alt-out').textContent  = altAlt.toLocaleString();
+
+  // Sync FOB to main planner
+  var mainFob = document.getElementById('fob');
+  if (mainFob && parseFloat(mainFob.value) !== altFob) {
+    mainFob.value = altFob;
+    if (window.update) window.update();
+  }
+
+  // Get planned values from lastPlan (main planner result)
+  var lp = (typeof window.lastPlan !== 'undefined') ? window.lastPlan : null;
+
+  // Read aircraft performance from main planner fields
+  var ffClimb   = parseFloat(document.getElementById('ff-climb').value)||37;
+  var ffCruise  = parseFloat(document.getElementById('ff-cruise').value)||32;
+  var ffDesc    = parseFloat(document.getElementById('ff-desc').value)||10;
+  var climbRate = parseFloat(document.getElementById('climb-rate').value)||1400;
+  var descRate  = parseFloat(document.getElementById('desc-rate').value)||1000;
+  var tas       = parseFloat(document.getElementById('tas').value)||280;
+  var reserveGph  = parseFloat(document.getElementById('reserve-gph').value)||38;
+  var reserveMinsRaw = document.getElementById('reserve-mins').value;
+  var reserveMins = (reserveMinsRaw===''||isNaN(parseFloat(reserveMinsRaw)))?60:parseFloat(reserveMinsRaw);
+  var reserveGal  = +(reserveGph*(reserveMins/60)).toFixed(1);
+  var taxi        = parseFloat(document.getElementById('taxi-fuel').value)||0;
+
+  // Arrival elevation = from main planner (destination = main arrival airport)
+  var destElev = parseFloat(document.getElementById('arr-elev').value)||1000;
+
+  // Fuel at destination (from main planner landing fuel)
+  var fobAfterTaxi = altFob - taxi;
+  var destFuel = lp ? +(fobAfterTaxi - lp.totalGal).toFixed(1) : null;
+
+  // Compute divert leg: dest → alternate
+  var _compute = (typeof compute !== 'undefined') ? compute : window.compute;
+  if (!_compute) return;
+
+  var divert = _compute(altDist, altAlt, destElev, altElev,
+                       ffClimb, ffCruise, ffDesc,
+                       climbRate, descRate, tas, altWs, altWd);
+
+  // Fuel at alternate after divert
+  var altArrFuel = destFuel !== null ? +(destFuel - divert.totalGal).toFixed(1) : null;
+  var altMargin  = altArrFuel !== null ? +(altArrFuel - reserveGal).toFixed(1) : null;
+
+  // ── Update fuel chain ──────────────────────────────────────────────────────
+  document.getElementById('fc-fob').textContent       = altFob;
+  document.getElementById('fc-trip-burn').textContent = (lp ? lp.totalGal : '—')+' trip';
+  document.getElementById('fc-dest-fuel').textContent = destFuel !== null ? destFuel : '—';
+  document.getElementById('fc-alt-burn').textContent  = divert.totalGal+' div';
+  document.getElementById('fc-alt-fuel').textContent  = altArrFuel !== null ? altArrFuel : '—';
+  document.getElementById('fc-reserve-burn').textContent = reserveGal+' resv';
+  var fcMarginEl = document.getElementById('fc-margin');
+  fcMarginEl.textContent = altMargin !== null ? altMargin : '—';
+  fcMarginEl.style.color = altMargin===null?''
+    : altMargin<0?'var(--red-label)':altMargin<10?'var(--amber-label)':'var(--green-label)';
+
+  // ── Update metric cards ────────────────────────────────────────────────────
+  document.getElementById('alt-r-total').textContent    = divert.totalGal;
+  var _fmt = (typeof fmtTime !== 'undefined') ? fmtTime : window.fmtTime;
+  document.getElementById('alt-r-time').textContent     = _fmt ? _fmt(divert.totalMins) : divert.totalMins;
+  document.getElementById('alt-r-tod').textContent      = divert.todNm;
+  document.getElementById('alt-r-cfuel').textContent    = divert.climbGal;
+  document.getElementById('alt-r-crfuel').textContent   = divert.cruiseGal;
+  document.getElementById('alt-r-dfuel').textContent    = divert.descGal;
+  document.getElementById('alt-r-gs').textContent       = divert.gs;
+  document.getElementById('alt-r-dest-fuel').textContent= destFuel !== null ? destFuel : '—';
+  document.getElementById('alt-r-arr-fuel').textContent = altArrFuel !== null ? altArrFuel : '—';
+  document.getElementById('alt-r-margin').textContent   = altMargin !== null ? altMargin : '—';
+
+  // ── Color destination fuel metric ──────────────────────────────────────────
+  var destMet = document.getElementById('alt-dest-metric');
+  if (destMet && destFuel !== null) {
+    destMet.className = 'metric '+(destFuel<reserveGal+divert.totalGal?'red':destFuel<reserveGal+divert.totalGal+10?'amber':'');
+  }
+
+  // ── Color arrival fuel and margin metrics ──────────────────────────────────
+  var arrMet = document.getElementById('alt-arr-metric');
+  if (arrMet && altArrFuel !== null) {
+    arrMet.className = 'metric '+(altArrFuel<reserveGal?'red':altArrFuel<reserveGal+10?'amber':'green');
+  }
+  var margMet = document.getElementById('alt-margin-metric');
+  if (margMet && altMargin !== null) {
+    margMet.className = 'metric '+(altMargin<0?'red':altMargin<10?'amber':'green');
+  }
+
+  // ── Warnings ───────────────────────────────────────────────────────────────
+  var warnBox = document.getElementById('alt-warn-box');
+  var warns = [];
+  if (divert.noAlt) warns.push('Climb distance exceeds divert leg distance — reduce divert altitude.');
+  if (destFuel !== null && destFuel < divert.totalGal + reserveGal) {
+    warns.push('Insufficient fuel at destination to reach alternate with reserves.');
+  }
+  if (!lp) warns.push('No planned trip data yet — run the planner first.');
+  warnBox.style.display = warns.length ? 'block' : 'none';
+  warnBox.textContent   = warns.join(' | ');
+
+  // ── Go / No-Go indicator ───────────────────────────────────────────────────
+  var gng = document.getElementById('alt-gng');
+  if (altMargin !== null) {
+    gng.style.display = 'block';
+    if (altMargin >= 10) {
+      gng.style.background='var(--green-bg)'; gng.style.color='var(--green-label)';
+      gng.textContent = '✓ ALTERNATE LEGAL — '+altMargin+' gal above reserves';
+    } else if (altMargin >= 0) {
+      gng.style.background='var(--amber-bg)'; gng.style.color='var(--amber-label)';
+      gng.textContent = '⚠ MARGINAL — only '+altMargin+' gal above reserves';
+    } else {
+      gng.style.background='var(--red-bg)'; gng.style.color='var(--red-label)';
+      gng.textContent = '✗ ALTERNATE NOT LEGAL — '+Math.abs(altMargin)+' gal short of reserves';
+    }
+  } else {
+    gng.style.display='none';
+  }
+}
+
+window.fetchAltAirport  = fetchAltAirport;
+window.refreshAltPlan   = refreshAltPlan;
+window.autoFillAltWinds = autoFillAltWinds;
+
 
 // ── Export performance data as CSV ───────────────────────────────────────────
 function exportPerfCSV() {
@@ -2204,6 +2480,138 @@ function loadChart(src, cb) {
 }
 loadChart('chart.umd.js', function() { init(); });
 </script>
+
+<div id="tab-altplan" class="tab-pane" style="display:none;">
+<div class="container">
+
+  <!-- Alternate Airport Card -->
+  <div class="card">
+    <div class="section-label">Alternate airport</div>
+    <div style="display:flex;gap:8px;align-items:flex-end;margin-bottom:0.75rem;">
+      <div style="flex:1;">
+        <div style="font-size:13px;color:var(--text2);margin-bottom:4px;">ICAO identifier</div>
+        <input type="text" id="alt-icao" placeholder="KALB" maxlength="4"
+          autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false"
+          onblur="if(this.value.trim().length>=3)fetchAltAirport()"
+          style="width:100%;text-transform:uppercase;font-size:15px;padding:7px 10px;border:0.5px solid var(--border2);border-radius:var(--radius);background:var(--bg2);color:var(--text);">
+      </div>
+      <div style="flex:1;">
+        <div style="font-size:13px;color:var(--text2);margin-bottom:4px;">Field elevation (ft)</div>
+        <input type="number" id="alt-elev" value="1000" min="0" max="14000" step="100"
+          onfocus="this.select()" inputmode="decimal"
+          style="width:100%;text-align:right;font-size:14px;padding:6px 8px;border:0.5px solid var(--border2);border-radius:var(--radius);background:var(--bg2);color:var(--text);">
+      </div>
+      <button id="alt-fetch-btn" onclick="fetchAltAirport()"
+        style="flex-shrink:0;font-size:13px;padding:7px 14px;border-radius:var(--radius);border:0.5px solid var(--border2);background:transparent;color:var(--text2);cursor:pointer;white-space:nowrap;height:38px;">
+        Load
+      </button>
+    </div>
+    <div id="alt-wx" style="display:none;border-radius:var(--radius);background:var(--bg2);padding:8px 10px;font-size:12px;color:var(--text2);line-height:1.6;"></div>
+  </div>
+
+  <!-- Alternate Route Inputs -->
+  <div class="card">
+    <div class="section-label">Divert plan</div>
+    <div class="row">
+      <label>Dest → Alternate (nm)</label>
+      <input type="range" id="alt-dist-slider" min="10" max="500" value="75" step="5">
+      <span class="val" id="alt-dist-out">75 nm</span>
+    </div>
+    <div id="alt-dist-display" style="font-size:12px;color:var(--text3);margin-bottom:0.8rem;display:none;"></div>
+    <div class="row">
+      <label>Divert cruise alt (ft)</label>
+      <input type="range" id="alt-alt-slider" min="5000" max="28000" value="10000" step="1000">
+      <span class="val" id="alt-alt-out">10,000</span>
+    </div>
+    <div class="row">
+      <label>Wind speed (kts)</label>
+      <input type="number" id="alt-wind-spd" value="0" min="0" max="200" step="1"
+        onfocus="this.select()" inputmode="decimal">
+      <select id="alt-wind-dir" style="height:38px;padding:0 8px;border:0.5px solid var(--border2);border-radius:var(--radius);background:var(--bg2);color:var(--text);font-size:14px;">
+        <option value="head">Headwind</option>
+        <option value="tail">Tailwind</option>
+      </select>
+    </div>
+    <div class="row">
+      <label>Fuel on board (gal)</label>
+      <input type="number" id="alt-fob" value="145" min="0" max="145" step="1"
+        onfocus="this.select()" inputmode="decimal">
+      <span class="hint">synced to planner</span>
+    </div>
+  </div>
+
+  <!-- Fuel Chain Card -->
+  <div class="card" id="alt-results-card">
+    <div class="section-label">Divert fuel analysis</div>
+
+    <!-- Fuel chain visual -->
+    <div id="alt-warn-box" style="display:none;font-size:13px;color:var(--warn-text);background:var(--warn-bg);border-radius:var(--radius);padding:8px 12px;margin-bottom:0.75rem;"></div>
+
+    <div style="margin-bottom:1rem;">
+      <div style="font-size:11px;color:var(--text3);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.05em;">Fuel chain</div>
+      <div style="display:flex;align-items:center;gap:0;flex-wrap:nowrap;overflow-x:auto;">
+        <div style="text-align:center;min-width:64px;">
+          <div style="font-size:10px;color:var(--text3);">FOB</div>
+          <div style="font-size:16px;font-weight:500;" id="fc-fob">—</div>
+          <div style="font-size:10px;color:var(--text3);">gal</div>
+        </div>
+        <div style="flex:1;height:2px;background:var(--border2);min-width:12px;position:relative;">
+          <div style="position:absolute;top:-8px;left:50%;transform:translateX(-50%);font-size:9px;color:var(--text3);white-space:nowrap;" id="fc-trip-burn">— trip</div>
+        </div>
+        <div style="text-align:center;min-width:64px;">
+          <div style="font-size:10px;color:var(--text3);">At dest</div>
+          <div style="font-size:16px;font-weight:500;" id="fc-dest-fuel">—</div>
+          <div style="font-size:10px;color:var(--text3);">gal</div>
+        </div>
+        <div style="flex:1;height:2px;background:var(--border2);min-width:12px;position:relative;">
+          <div style="position:absolute;top:-8px;left:50%;transform:translateX(-50%);font-size:9px;color:var(--text3);white-space:nowrap;" id="fc-alt-burn">— divert</div>
+        </div>
+        <div style="text-align:center;min-width:64px;">
+          <div style="font-size:10px;color:var(--text3);">At alt</div>
+          <div style="font-size:16px;font-weight:500;" id="fc-alt-fuel">—</div>
+          <div style="font-size:10px;color:var(--text3);">gal</div>
+        </div>
+        <div style="flex:1;height:2px;background:var(--border2);min-width:12px;position:relative;">
+          <div style="position:absolute;top:-8px;left:50%;transform:translateX(-50%);font-size:9px;color:var(--text3);white-space:nowrap;" id="fc-reserve-burn">— resv</div>
+        </div>
+        <div style="text-align:center;min-width:64px;">
+          <div style="font-size:10px;color:var(--text3);">Margin</div>
+          <div style="font-size:16px;font-weight:500;" id="fc-margin">—</div>
+          <div style="font-size:10px;color:var(--text3);">gal</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Key numbers grid -->
+    <div class="metric-grid cols3 spacer">
+      <div class="metric"><div class="m-label">Divert fuel</div><div class="m-num" id="alt-r-total">—</div><div class="m-unit">gal</div></div>
+      <div class="metric"><div class="m-label">Divert time</div><div class="m-num" id="alt-r-time">—</div><div class="m-unit">hr+min</div></div>
+      <div class="metric"><div class="m-label">TOD from alt</div><div class="m-num" id="alt-r-tod">—</div><div class="m-unit">nm</div></div>
+    </div>
+    <div class="metric-grid cols3">
+      <div class="metric" id="alt-dest-metric"><div class="m-label">Fuel at dest</div><div class="m-num" id="alt-r-dest-fuel">—</div><div class="m-unit">gal</div></div>
+      <div class="metric" id="alt-arr-metric"><div class="m-label">Fuel at alternate</div><div class="m-num" id="alt-r-arr-fuel">—</div><div class="m-unit">gal</div></div>
+      <div class="metric" id="alt-margin-metric"><div class="m-label">Margin above reserve</div><div class="m-num" id="alt-r-margin">—</div><div class="m-unit">gal</div></div>
+    </div>
+
+    <!-- Go/No-Go indicator -->
+    <div id="alt-gng" style="margin-top:0.875rem;padding:10px 14px;border-radius:var(--radius);font-size:14px;font-weight:500;text-align:center;display:none;"></div>
+
+    <!-- Divert phase breakdown -->
+    <div style="margin-top:0.875rem;">
+      <div class="phase-label">Divert phases</div>
+      <div class="metric-grid cols4">
+        <div class="metric"><div class="m-label">Climb fuel</div><div class="m-num" id="alt-r-cfuel">—</div><div class="m-unit">gal</div></div>
+        <div class="metric"><div class="m-label">Cruise fuel</div><div class="m-num" id="alt-r-crfuel">—</div><div class="m-unit">gal</div></div>
+        <div class="metric"><div class="m-label">Desc fuel</div><div class="m-num" id="alt-r-dfuel">—</div><div class="m-unit">gal</div></div>
+        <div class="metric"><div class="m-label">Divert GS</div><div class="m-num" id="alt-r-gs">—</div><div class="m-unit">kts</div></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div> <!-- end tab-altplan -->
+
 <nav class="bottom-nav" id="bottom-nav">
   <button id="tab-plan-btn" class="active" onclick="showTab('plan')">
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -2223,6 +2631,12 @@ loadChart('chart.umd.js', function() { init(); });
       <path d="M7 7h6M7 10h6M7 13h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
     </svg>
     Act vs Plan
+  </button>
+  <button id="tab-altplan-btn" onclick="showTab('altplan')">
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+      <path d="M10 3v14M3 10l7-7 7 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    Alternate
   </button>
 </nav>
 
