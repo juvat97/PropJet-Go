@@ -662,21 +662,21 @@
     <p class="note" style="margin-bottom:1rem;">Planned values are pulled from the current planner. Enter what actually happened. Saving auto-adds TAS, FF, and ISA dev to your Perf Data table.</p>
 
     <!-- Route & Date -->
-    <div style="display:flex;gap:10px;align-items:flex-end;margin-bottom:1rem;">
-      <div style="flex:1;">
+    <div style="display:flex;gap:8px;align-items:flex-end;margin-bottom:1rem;">
+      <div style="width:130px;flex-shrink:0;">
         <div style="font-size:13px;color:var(--text2);margin-bottom:4px;">Date</div>
         <input type="date" id="log-date"
-          style="width:100%;padding:6px 8px;border:0.5px solid var(--border2);border-radius:var(--radius);background:var(--bg2);color:var(--text);font-size:13px;">
+          style="width:100%;padding:6px 6px;border:0.5px solid var(--border2);border-radius:var(--radius);background:var(--bg2);color:var(--text);font-size:12px;height:34px;box-sizing:border-box;">
       </div>
-      <div style="width:72px;flex-shrink:0;">
+      <div style="width:68px;flex-shrink:0;">
         <div style="font-size:13px;color:var(--text2);margin-bottom:4px;">Dep</div>
         <input type="text" id="log-dep" placeholder="KAFO" maxlength="4"
-          style="width:100%;padding:6px 8px;border:0.5px solid var(--border2);border-radius:var(--radius);background:var(--bg2);color:var(--text);font-size:13px;text-transform:uppercase;text-align:center;">
+          style="width:100%;padding:6px 8px;border:0.5px solid var(--border2);border-radius:var(--radius);background:var(--bg2);color:var(--text);font-size:13px;text-transform:uppercase;text-align:center;height:34px;box-sizing:border-box;">
       </div>
-      <div style="width:72px;flex-shrink:0;">
+      <div style="width:68px;flex-shrink:0;">
         <div style="font-size:13px;color:var(--text2);margin-bottom:4px;">Arr</div>
         <input type="text" id="log-arr" placeholder="KGEU" maxlength="4"
-          style="width:100%;padding:6px 8px;border:0.5px solid var(--border2);border-radius:var(--radius);background:var(--bg2);color:var(--text);font-size:13px;text-transform:uppercase;text-align:center;">
+          style="width:100%;padding:6px 8px;border:0.5px solid var(--border2);border-radius:var(--radius);background:var(--bg2);color:var(--text);font-size:13px;text-transform:uppercase;text-align:center;height:34px;box-sizing:border-box;">
       </div>
     </div>
 
@@ -2619,6 +2619,12 @@ loadChart('chart.umd.js', function() { init(); });
     </svg>
     Planner
   </button>
+  <button id="tab-altplan-btn" onclick="showTab('altplan')">
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+      <path d="M10 3v14M3 10l7-7 7 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    Alternate
+  </button>
   <button id="tab-perf-btn" onclick="showTab('perf')">
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
       <path d="M3 16L7 10l3 3 4-6 3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -2631,12 +2637,6 @@ loadChart('chart.umd.js', function() { init(); });
       <path d="M7 7h6M7 10h6M7 13h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
     </svg>
     Act vs Plan
-  </button>
-  <button id="tab-altplan-btn" onclick="showTab('altplan')">
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-      <path d="M10 3v14M3 10l7-7 7 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>
-    Alternate
   </button>
 </nav>
 
