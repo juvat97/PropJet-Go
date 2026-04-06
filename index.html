@@ -352,6 +352,7 @@
   <div style="display:flex;justify-content:center;align-items:center;margin:-0.25rem 0;position:relative;height:36px;gap:8px;">
     <div style="position:absolute;left:0;right:0;top:50%;border-top:0.5px solid var(--border);"></div>
     <div id="airport-dist-display" style="display:none;position:relative;background:var(--bg);padding:0 10px;font-size:12px;color:var(--text2);z-index:1;white-space:nowrap;"></div>
+    <div id="alt-req-badge" style="display:none;position:relative;z-index:1;background:var(--amber-bg);color:var(--amber-label);font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;white-space:nowrap;">Alt Req'd</div>
     <button onclick="swapAirports()"
       style="position:relative;width:36px;height:36px;border-radius:50%;border:0.5px solid var(--border2);background:var(--bg);color:var(--text2);cursor:pointer;padding:0;margin-top:0;z-index:1;display:flex;align-items:center;justify-content:center;">
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:block;flex-shrink:0;">
@@ -1256,6 +1257,8 @@ function applyRealPerfToFields(altFt) {
 </script>
 <script>
 var airportCoords = { dep: null, arr: null };
+// Stored METAR wx for 1-2-3 rule evaluation
+var arrMetarWx = { ceilingFt: null, visMiles: null };
 // Cached winds aloft data for chart use
 var cachedWindsData = { dep: null, mid: null, arr: null, routeHdg: null };
 
@@ -1343,6 +1346,17 @@ function fetchAirport(which) {
     if (metar) {
       var catBg     = { VFR: '#EAF3DE', MVFR: '#E6F1FB', IFR: '#FCEBEB', LIFR: '#FAEEDA' };
       var catColors = { VFR: '#27500A', MVFR: '#0C447C', IFR: '#791F1F', LIFR: '#633806' };
+      // Store arrival METAR for 1-2-3 rule evaluation
+      if (which === 'arr') {
+        arrMetarWx.ceilingFt  = metar.ceiling ? metar.ceiling.feet : null;
+        arrMetarWx.visMiles   = metar.visibility ? metar.visibility.miles_float : null;
+        // If clouds show CLR/SKC/CAVOK treat ceiling as unlimited
+        if (arrMetarWx.ceilingFt === null && metar.clouds && metar.clouds.length) {
+          var clrLayer = metar.clouds.find(function(c){ return c.code==='CLR'||c.code==='SKC'||c.code==='CAVOK'; });
+          if (clrLayer) arrMetarWx.ceilingFt = 9999;
+        }
+        evaluate123Rule();
+      }
       var cat = metar.flight_category || '';
       var wind = '';
       if (metar.wind) {
@@ -1679,10 +1693,37 @@ function swapAirports() {
   var tmpCoords = airportCoords.dep;
   airportCoords.dep = airportCoords.arr;
   airportCoords.arr = tmpCoords;
+  // Swap wx clears arr metar (new arr was old dep, wx unknown for 1-2-3)
+  arrMetarWx = { ceilingFt: null, visMiles: null };
+  if (typeof evaluate123Rule !== 'undefined') evaluate123Rule();
   updateAirportDistance();
   fetchWindsAloft();
   window.update && window.update();
 }
+
+// ── FAA 1-2-3 Rule evaluation ────────────────────────────────────────────────
+// Alternate NOT required if destination forecast shows ceiling >=2000ft AND
+// visibility >=3sm for the period 1hr before to 1hr after ETA (91.167 / 1-2-3 rule).
+// We evaluate against current METAR as a proxy (conservative — METAR may be better
+// than the forecast window). Pilots should verify with TAF for actual IFR planning.
+function evaluate123Rule() {
+  var badge = document.getElementById('alt-req-badge');
+  if (!badge) return;
+  var ceil = arrMetarWx.ceilingFt;
+  var vis  = arrMetarWx.visMiles;
+  if (ceil === null && vis === null) { badge.style.display='none'; return; }
+  var ceilOk = (ceil !== null) && (ceil >= 2000);
+  var visOk  = (vis  !== null) && (vis  >= 3.0);
+  var required = !ceilOk || !visOk;
+  badge.style.display = required ? 'inline-block' : 'none';
+  if (required) {
+    var reason = [];
+    if (!ceilOk) reason.push('ceiling ' + (ceil!==null ? Math.round(ceil)+'ft' : 'unknown') + ' < 2000ft');
+    if (!visOk)  reason.push('vis '     + (vis !==null ? vis+'sm'              : 'unknown') + ' < 3sm');
+    badge.title = 'FAA 1-2-3 Rule: alternate required — ' + reason.join(', ') + ' at destination';
+  }
+}
+window.evaluate123Rule = evaluate123Rule;
 </script>
 
 <script>
@@ -2167,16 +2208,36 @@ function refreshAltPlan() {
     gng.style.display = 'block';
     if (altMargin >= 10) {
       gng.style.background='var(--green-bg)'; gng.style.color='var(--green-label)';
-      gng.textContent = '✓ ALTERNATE LEGAL — '+altMargin+' gal above reserves';
+      gng.textContent = '✓ ALTERNATE LEGAL — '+altMargin+' gal above your reserve';
     } else if (altMargin >= 0) {
       gng.style.background='var(--amber-bg)'; gng.style.color='var(--amber-label)';
-      gng.textContent = '⚠ MARGINAL — only '+altMargin+' gal above reserves';
+      gng.textContent = '⚠ MARGINAL — only '+altMargin+' gal above your reserve';
     } else {
       gng.style.background='var(--red-bg)'; gng.style.color='var(--red-label)';
-      gng.textContent = '✗ ALTERNATE NOT LEGAL — '+Math.abs(altMargin)+' gal short of reserves';
+      gng.textContent = '✗ NOT LEGAL — '+Math.abs(altMargin)+' gal short of your reserve';
     }
   } else {
     gng.style.display='none';
+  }
+
+  // ── FAR 91.167 secondary threshold ─────────────────────────────────────────
+  // FAR minimum = 45 min cruise fuel at alternate altitude
+  var farRow = document.getElementById('alt-far-row');
+  var farGalEl = document.getElementById('alt-far-gal');
+  var farMarginEl = document.getElementById('alt-far-margin');
+  var reserveLabelEl = document.getElementById('alt-reserve-label');
+  if (farRow && altArrFuel !== null) {
+    // 45 min at cruise FF
+    var farGal = +(ffCruise * (45/60)).toFixed(1);
+    var farMargin = +(altArrFuel - farGal).toFixed(1);
+    farGalEl.textContent = farGal + ' gal';
+    var farMarginStr = (farMargin >= 0 ? '+' : '') + farMargin + ' gal';
+    farMarginEl.textContent = farMarginStr;
+    farMarginEl.style.color = farMargin < 0 ? 'var(--red-label)' : farMargin < 5 ? 'var(--amber-label)' : 'var(--green-label)';
+    reserveLabelEl.textContent = reserveGal + ' gal (' + reserveMins + ' min)';
+    farRow.style.display = 'block';
+  } else if (farRow) {
+    farRow.style.display = 'none';
   }
 }
 
@@ -2596,6 +2657,19 @@ loadChart('chart.umd.js', function() { init(); });
 
     <!-- Go/No-Go indicator -->
     <div id="alt-gng" style="margin-top:0.875rem;padding:10px 14px;border-radius:var(--radius);font-size:14px;font-weight:500;text-align:center;display:none;"></div>
+
+    <!-- FAR 91.167 secondary threshold -->
+    <div id="alt-far-row" style="display:none;margin-top:0.625rem;padding:8px 12px;border-radius:var(--radius);background:var(--bg2);font-size:12px;color:var(--text2);">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+        <span style="font-weight:500;color:var(--text);">FAR 91.167 minimum (45 min)</span>
+        <span id="alt-far-gal" style="font-weight:500;">—</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span>Margin above FAR minimum</span>
+        <span id="alt-far-margin" style="font-weight:500;">—</span>
+      </div>
+      <div style="margin-top:5px;font-size:11px;color:var(--text3);">Your reserve is <span id="alt-reserve-label">—</span>. FAR 91.167 requires only 45 min cruise fuel at the alternate.</div>
+    </div>
 
     <!-- Divert phase breakdown -->
     <div style="margin-top:0.875rem;">
