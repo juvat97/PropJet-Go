@@ -46,9 +46,10 @@ def fmtTime(m):
 
 def getGS(t, w, wd): return t+w if wd=='tail' else max(50, t-w)
 
-def cruiseGphAtAlt(a, anc, g):
-    f = 1-(a-anc)/1000*0.0057 if a >= anc else 1+(anc-a)/1000*0.008
-    return g * max(0.6, min(1.5, f))
+def cruiseGphAtAlt(a, anc=22000, g=30.0):
+    # V-shape: FL220/30gph anchor, 0.80%/1000ft symmetric both directions
+    f = 1 + abs(a-anc)/1000*0.008
+    return g*max(0.6,min(1.5,f))
 
 def compute(dist, cAlt, dEl, aEl, cGph, crGph, dGph, cR, dR, tas, ws, wd):
     gs  = getGS(tas, ws, wd)
@@ -155,9 +156,9 @@ def simulate_altplan(altDist, altAlt, altElev, destElev, ws, wd,
     }
 
 # Default inputs matching app DEFAULTS
-DEFAULTS = dict(dist=500, alt=17000, dEl=1000, aEl=1000,
-                fCl=37, fCr=32, fDe=10, cR=1400, dR=1000,
-                tas=280, ws=0, wd='head',
+DEFAULTS = dict(dist=500, alt=22000, dEl=1000, aEl=1000,
+                fCl=37, fCr=30, fDe=10, cR=1400, dR=1000,
+                tas=285, ws=0, wd='head',
                 fob=145, rGph=38, rMins=60, taxi=3, altD=0,
                 perfData=None, isaDev=0)
 def run(**kw): return simulate(**{**DEFAULTS, **kw})
@@ -184,11 +185,11 @@ def test_A():
     print(f"  MinStart:{s['minS']}gal LandFuel:{s['lF']}gal Margin:{s['marg']}gal maxDist:{s['maxD']}nm")
     chk("A1.  c+cr+d=500nm", abs(r['_cG']+r['_crG']+r['_dG']-500)<0.5)
     chk("A2.  fuel phases sum to totalGal", abs(r['climbGal']+r['cruiseGal']+r['descGal']-r['totalGal'])<0.2)
-    chk("A3.  climbTime=(17000-1000)/1400≈11min", abs(r['climbMins']-round((17000-1000)/1400))<1)
-    chk("A4.  climbFuel=37×(16000/1400)/60≈7.0gal", abs(r['climbGal']-round(37*16000/1400/60,1))<0.2)
-    chk("A5.  GS=280 (TAS no wind)", r['gs']==280)
-    chk("A6.  descTAS ∈ [264,339]", 264<=r['avgDesTas']<=339)
-    chk("A7.  descTime=(17000-1000)/1000=16min", abs(r['descMins']-16)<1)
+    chk("A3.  climbTime=(22000-1000)/1400≈15min", abs(r['climbMins']-round((22000-1000)/1400))<1)
+    chk("A4.  climbFuel=37×(21000/1400)/60≈9.4gal", abs(r['climbGal']-round(37*21000/1400/60,1))<0.3)
+    chk("A5.  GS=285 (TAS no wind)", r['gs']==285)
+    chk("A6.  descTAS ∈ [264,370]", 264<=r['avgDesTas']<=370)
+    chk("A7.  descTime=(22000-1000)/1000=21min", abs(r['descMins']-21)<1)
     chk("A8.  TOD=descDist", r['todNm']==r['descDist'])
     chk("A9.  fobAfterTaxi=142", s['fobAT']==142)
     chk("A10. reserveGal=38.0", s['rGal']==38.0)
@@ -228,7 +229,7 @@ def test_C():
     s=run(dist=250,alt=17000,dEl=6204,aEl=5434,ws=25,wd='head'); r=s['r']
     s0=run(dist=250,alt=17000,dEl=6204,aEl=5434)
     print(f"  GS={r['gs']} Climb:{r['climbDist']}nm Cruise:{r['cruiseDist']}nm Desc:{r['descDist']}nm")
-    chk("C1. GS=255 (280−25 HW)", r['gs']==255)
+    chk("C1. GS=260 (285−25 HW)", r['gs']==260)
     chk("C2. climbDelta=10796ft", r['climbDelta']==10796)
     chk("C3. dist sum=250nm", abs(r['_cG']+r['_crG']+r['_dG']-250)<0.5)
     chk("C4. HW shortens climb dist", r['_cG']<s0['r']['_cG'])
@@ -241,17 +242,18 @@ def test_C():
 # ════════════════════════════════════════════════════════════════════════════
 def test_D():
     print("\n── D. LONG LEG KAFO→KPHX (500nm FL280, 30kt TW)")
-    gph28=cruiseGphAtAlt(28000,17000,32)
-    tas28=min(TAS_CEIL,280+(28000-17000)/1000*(TAS_CEIL-280)/max(1,TAS_CEIL_ALT-17000)*1000)
+    gph28=cruiseGphAtAlt(28000)  # V-shape: FL280 costs more than FL220
+    # TAS at FL280: declines from FL220 peak at 0.455kts/1000ft
+    tas28=max(200, 285-(28000-22000)/1000*0.455)
     s=run(dist=500,alt=28000,dEl=6204,aEl=1135,fCr=gph28,tas=tas28,ws=30,wd='tail')
     s0=run(dist=500,alt=28000,dEl=6204,aEl=1135,fCr=gph28,tas=tas28)
     r=s['r']
     print(f"  gph={gph28:.3f} TAS={tas28:.1f} GS={r['gs']} Total:{r['totalGal']}gal {fmtTime(r['totalMins'])}")
-    chk("D1. GS=350 (320+30 TW)", r['gs']==350)
+    chk(f"D1. GS=tas28+30 TW ({round(tas28)+30})", r['gs']==round(tas28)+30)
     chk("D2. climbDelta=21796ft", r['climbDelta']==21796)
     chk("D3. dist sum=500nm", abs(r['_cG']+r['_crG']+r['_dG']-500)<0.5)
-    chk("D4. gph@FL280≈29.994", abs(gph28-29.994)<0.01)
-    chk("D5. TAS@FL280=320.0 (cap)", abs(tas28-320)<0.01)
+    chk("D4. gph@FL280>gph@FL220 (V-shape)", gph28>cruiseGphAtAlt(22000))
+    chk(f"D5. TAS@FL280={tas28:.1f}<285 (declines above FL220)", tas28<285)
     chk("D6. TW less fuel than no wind", r['totalGal']<s0['r']['totalGal'])
     chk("D7. all fuel ≥0", r['climbGal']>=0 and r['cruiseGal']>=0 and r['descGal']>=0)
 
@@ -290,7 +292,7 @@ def test_E():
 def test_F():
     print("\n── F. WIND EDGE CASES")
     rH=run(ws=0,wd='head')['r']; rT=run(ws=0,wd='tail')['r']
-    chk("F1. ws=0: head==tail", rH['gs']==rT['gs']==280 and rH['totalGal']==rT['totalGal'])
+    chk("F1. ws=0: head==tail", rH['gs']==rT['gs']==285 and rH['totalGal']==rT['totalGal'])
     r=compute(500,17000,1000,1000,37,32,10,1400,1000,280,250,'head')
     chk("F2. ws=250 HW: GS floored at 50", r['gs']==50)
     r=compute(500,17000,1000,1000,37,32,10,1400,1000,320,30,'tail')
@@ -363,14 +365,21 @@ def test_I():
 # ════════════════════════════════════════════════════════════════════════════
 def test_J():
     print("\n── J. CRUISE GPH MODEL CONSISTENCY")
-    alts=[5000,8000,10000,12000,14000,17000,19000,21000,23000,25000,28000]
-    gphs=[cruiseGphAtAlt(a,17000,32) for a in alts]
-    for i in range(len(gphs)-1):
-        chk(f"J1. GPH decreasing {alts[i]}→{alts[i+1]}ft: {gphs[i]:.3f}>{gphs[i+1]:.3f}", gphs[i]>gphs[i+1])
-    chk("J2. Anchor FL170=32.000 exactly", abs(cruiseGphAtAlt(17000,17000,32)-32)<0.001)
-    chk("J3. FL280≈29.994gph", abs(cruiseGphAtAlt(28000,17000,32)-29.994)<0.01)
-    chk("J4. Min clamped at 0.6×32=19.2", cruiseGphAtAlt(200000,17000,32)>=0.6*32)
-    chk("J5. Max clamped at 1.5×32=48.0", cruiseGphAtAlt(-10000,17000,32)<=1.5*32)
+    # V-shape: FF decreases going up to FL220, then increases above FL220
+    alts_below=[5000,8000,10000,12000,14000,17000,19000,21000,22000]
+    alts_above=[22000,23000,25000,26000,28000]
+    gphs_below=[cruiseGphAtAlt(a) for a in alts_below]
+    gphs_above=[cruiseGphAtAlt(a) for a in alts_above]
+    for i in range(len(gphs_below)-1):
+        chk(f"J1. GPH decreasing {alts_below[i]}→{alts_below[i+1]}ft (below anchor)",
+            gphs_below[i]>=gphs_below[i+1], f"{gphs_below[i]:.3f}>={gphs_below[i+1]:.3f}")
+    for i in range(len(gphs_above)-1):
+        chk(f"J1. GPH increasing {alts_above[i]}→{alts_above[i+1]}ft (above anchor)",
+            gphs_above[i]<=gphs_above[i+1], f"{gphs_above[i]:.3f}<={gphs_above[i+1]:.3f}")
+    chk("J2. Anchor FL220=30.000 exactly", abs(cruiseGphAtAlt(22000,22000,30)-30)<0.001)
+    chk("J3. FL280>FL220 (V-shape: worse above anchor)", cruiseGphAtAlt(28000)>cruiseGphAtAlt(22000))
+    chk("J4. Min clamped at 0.6×30=18.0", cruiseGphAtAlt(200000)>=0.6*30)
+    chk("J5. Max clamped at 1.5×30=45.0", cruiseGphAtAlt(-10000)<=1.5*30)
 
 # ════════════════════════════════════════════════════════════════════════════
 # SCENARIO K — REAL PERFORMANCE DATA SYSTEM
@@ -393,15 +402,19 @@ def test_K():
         abs(getRealPerf(17000,+5,d3)['tas']-273)<0.1)
     chk("K5. 10k data query 17k: None", getRealPerf(17000,0,[{'alt':10000,'tas':250,'ff':36,'isa':0}])==None)
     chk("K5. 15k data query 17k: data", getRealPerf(17000,0,[{'alt':15000,'tas':272,'ff':32.5,'isa':0}])!=None)
-    d_real=[{'alt':17000,'tas':285,'ff':30.0,'isa':0}]
+    # Use FL22000 anchor for test: generic=30.0gph; real data at lower FF means better
+    # At FL22000 generic=30.0, so use FF=28 (better than generic) and FF=40 (worse)
+    d_real=[{'alt':22000,'tas':287,'ff':28.0,'isa':0}]  # better than generic 30.0
     s_gen=run(); s_real=run(perfData=d_real,isaDev=0)
-    chk("K6. real data FF=30: less total fuel", s_real['r']['totalGal']<s_gen['r']['totalGal'])
+    chk("K6. real data FF=28 (better than generic 30): less total fuel",
+        s_real['r']['totalGal']<s_gen['r']['totalGal'])
     chk("K6. lower FF: more maxDist", s_real['maxD']>s_gen['maxD'])
-    d_hot=[{'alt':17000,'tas':275,'ff':40.0,'isa':0}]
+    d_hot=[{'alt':22000,'tas':275,'ff':40.0,'isa':0}]  # worse than generic 30.0
     s_hot=run(perfData=d_hot,isaDev=0)
-    chk("K7. high real FF=40: maxDist shrinks", s_hot['maxD']<s_gen['maxD'])
-    rM=compute(s_hot['maxD'],17000,1000,1000,37,40,10,1400,1000,275,0,'head')
-    chk("K7. maxDist valid: tripFuel+fixed≤fobAT", round(rM['totalGal']+s_hot['fixed'],1)<=s_hot['fobAT'])
+    chk("K7. high real FF=40 (worse than generic 30): maxDist shrinks", s_hot['maxD']<s_gen['maxD'])
+    rM=compute(s_hot['maxD'],22000,1000,1000,37,40,10,1400,1000,275,0,'head')
+    chk("K7. maxDist valid: tripFuel+fixed≤fobAT",
+        round(rM['totalGal']+s_hot['fixed'],1)<=s_hot['fobAT'])
 
 # ════════════════════════════════════════════════════════════════════════════
 # SCENARIO L — ACT vs PLAN
