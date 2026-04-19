@@ -318,7 +318,11 @@
     <h1>PropJet Go</h1>
     <p>Lancair IV-PT Performance Planner</p>
   </div>
-  <div style="display:flex;align-items:center;gap:8px;">
+  <div style="display:flex;align-items:center;gap:6px;">
+    <button id="save-defaults-btn" onclick="saveUserDefaults()"
+      style="font-size:12px;padding:5px 10px;border-radius:var(--radius);border:0.5px solid var(--border2);background:transparent;color:var(--text2);cursor:pointer;white-space:nowrap;">
+      Save Defaults
+    </button>
     <button class="reset-btn" id="reset-btn">Reset</button>
   </div>
 </header>
@@ -458,7 +462,7 @@
     <div class="section-label">M601 fuel flows &amp; performance</div>
     <div class="row">
       <label>Climb fuel flow (gph)</label>
-      <input type="number" id="ff-climb" value="37" min="10" max="50" step="0.5" onfocus="this.select()" inputmode="decimal">
+      <input type="number" id="ff-climb" value="40" min="10" max="50" step="0.5" onfocus="this.select()" inputmode="decimal">
       <span class="hint">at climb power</span>
     </div>
     <div class="row">
@@ -468,7 +472,7 @@
     </div>
     <div class="row">
       <label>Descent FF (gph)</label>
-      <input type="number" id="ff-desc" value="25" min="2" max="40" step="0.5" onfocus="this.select()" inputmode="decimal">
+      <input type="number" id="ff-desc" value="30" min="2" max="40" step="0.5" onfocus="this.select()" inputmode="decimal">
       <span class="hint">220 KIAS / 1500 fpm</span>
     </div>
     <div class="row">
@@ -482,7 +486,7 @@
     </div>
     <div class="row">
       <label>Cruise TAS (kts)</label>
-      <input type="number" id="tas" value="285" min="150" max="360" step="1" onfocus="this.select()" inputmode="decimal">
+      <input type="number" id="tas" value="270" min="150" max="360" step="1" onfocus="this.select()" inputmode="decimal">
       <span class="hint">at target altitude</span>
     </div>
     <p class="hint-text" style="margin-top:0.5rem;">Descent at 260 KIAS → KTAS via ISA. Descent time = alt delta ÷ descent rate. Descent distance = avg KTAS × descent time, capped at available leg distance.</p>
@@ -509,7 +513,7 @@
       <div class="metric"><div class="m-label">Ground speed</div><div class="m-num" id="r-gs">—</div><div class="m-unit">kts</div></div>
     </div>
 
-    <div class="phase-label">Descent (220 KIAS / 2.5° FPA)</div>
+    <div class="phase-label">Descent (290 KTAS / 240 / 160 KIAS · 2.5° FPA)</div>
     <div class="metric-grid cols4 spacer">
       <div class="metric"><div class="m-label">Fuel</div><div class="m-num" id="r-dfuel">—</div><div class="m-unit">gal</div></div>
       <div class="metric"><div class="m-label">Time</div><div class="m-num" id="r-dtime">—</div><div class="m-unit">hr+min</div></div>
@@ -581,8 +585,8 @@
       </div>
       <div>
         <div style="font-size:13px;color:var(--text2);margin-bottom:4px;">ISA deviation (°C)</div>
-        <input type="number" id="pd-isa" placeholder="0" min="-40" max="40" step="0.5"
-          style="width:100%;padding:7px 10px;border:0.5px solid var(--border2);border-radius:var(--radius);background:var(--bg2);color:var(--text);font-size:14px;" onfocus="this.select()" inputmode="decimal">
+        <input type="text" id="pd-isa" placeholder="0" inputmode="text" autocomplete="off"
+          style="width:100%;padding:7px 10px;border:0.5px solid var(--border2);border-radius:var(--radius);background:var(--bg2);color:var(--text);font-size:14px;" onfocus="this.select()">
       </div>
     </div>
     <div style="display:flex;gap:8px;">
@@ -731,8 +735,8 @@
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:1rem;">
       <div>
         <div style="font-size:13px;color:var(--text2);margin-bottom:4px;">Actual ISA dev (°C)</div>
-        <input type="number" id="log-act-isa" placeholder="e.g. +5" min="-40" max="40" step="0.5"
-          style="width:100%;padding:7px 10px;border:0.5px solid var(--border2);border-radius:var(--radius);background:var(--bg2);color:var(--text);font-size:14px;" onfocus="this.select()" inputmode="decimal">
+        <input type="text" id="log-act-isa" placeholder="e.g. +5 or -8" inputmode="text" autocomplete="off"
+          style="width:100%;padding:7px 10px;border:0.5px solid var(--border2);border-radius:var(--radius);background:var(--bg2);color:var(--text);font-size:14px;" onfocus="this.select()">
       </div>
       <div>
         <div style="font-size:13px;color:var(--text2);margin-bottom:4px;">Actual ITT (°C)</div>
@@ -781,8 +785,8 @@ const DEFAULTS = {
   fob: 145, 'reserve-gph': 38, 'reserve-mins': 60, 'taxi-fuel': 3,
   'alt-dist': 0, 'dep-elev': 1000, 'arr-elev': 1000,
   dist: 500, alt: 22000, 'wind-spd': 0,
-  'ff-climb': 37, 'ff-cruise': 30, 'ff-desc': 25,
-  'climb-rate': 1400, tas: 285,
+  'ff-climb': 40, 'ff-cruise': 30, 'ff-desc': 30,
+  'climb-rate': 1400, tas: 270,
   'dep-icao': 'KAFO', 'arr-icao': 'KGEU'
 };
 
@@ -802,9 +806,32 @@ function densityRatio(altFt) {
 }
 function kiasToKtas(kias,altFt){ return kias/Math.sqrt(densityRatio(altFt)); }
 function avgDescentTas(cAlt,aAlt){
-  // Lancair IV-PT normal descent: 220 KIAS, 1500 fpm, ~25 gph, NP ~1800 rpm
-  const mid=(cAlt+aAlt)/2;
-  return (kiasToKtas(220,cAlt)+kiasToKtas(220,mid)+kiasToKtas(220,aAlt))/3;
+  // Lancair IV-PT three-phase descent (all at 2.5° FPA):
+  //   Phase 1: cruise alt → 10,000ft  →  290 KTAS (power-on, 660 ITT)
+  //   Phase 2: 10,000ft → ~3,661ft    →  240 KIAS (below 10k rule)
+  //   Phase 3: ~3,661ft → arrival     →  160 KIAS (final 10nm terminal slowdown)
+  // Returns weighted-average TAS = total_dist / total_time
+  const FPA_SIN = Math.sin(2.5*Math.PI/180), FPA_COS = Math.cos(2.5*Math.PI/180);
+  function phaseAvg(tasFn, atop, abot) {
+    if (atop <= abot) return {mins:0, dist:0};
+    var mid=(atop+abot)/2;
+    var avgTas=(tasFn(atop)+tasFn(mid)+tasFn(abot))/3;
+    var avgVS=avgTas*FPA_SIN*101.27;
+    var mins=(atop-abot)/Math.max(1,avgVS);
+    return {mins:mins, dist:avgTas*FPA_COS*(mins/60)};
+  }
+  var trans3=Math.min(10000, aAlt+2661);
+  var p1={mins:0,dist:0}, p2={mins:0,dist:0};
+  if(cAlt>10000){
+    p1=phaseAvg(function(a){return 290;}, cAlt, 10000);
+    p2=phaseAvg(function(a){return kiasToKtas(240,a);}, 10000, trans3);
+  } else if(cAlt>trans3){
+    p2=phaseAvg(function(a){return kiasToKtas(240,a);}, cAlt, trans3);
+  }
+  var p3=phaseAvg(function(a){return kiasToKtas(160,a);}, trans3, aAlt);
+  var totalMins=p1.mins+p2.mins+p3.mins;
+  var totalDist=p1.dist+p2.dist+p3.dist;
+  return totalDist/Math.max(0.01,totalMins/60);
 }
 function fmtTime(m){
   const t=Math.floor(m+0.5), h=Math.floor(t/60);
@@ -1091,8 +1118,78 @@ function update(){
 }
 
 
+// ── User-customisable defaults ────────────────────────────────────────────────
+var USER_DEFAULTS_KEY = 'propjet_user_defaults';
+var SAVEABLE_IDS = ['alt','ff-climb','ff-cruise','ff-desc','climb-rate',
+  'tas','reserve-gph','reserve-mins','taxi-fuel','alt-dist','dep-elev','arr-elev',
+  'dep-icao','arr-icao'];
+
+function saveUserDefaults() {
+  var saved = {};
+  SAVEABLE_IDS.forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) saved[id] = el.value;
+  });
+  try {
+    localStorage.setItem(USER_DEFAULTS_KEY, JSON.stringify(saved));
+    // Brief visual confirmation on the button
+    var btn = document.getElementById('save-defaults-btn');
+    if (btn) {
+      var orig = btn.textContent;
+      btn.textContent = 'Saved ✓';
+      btn.style.color = 'var(--green-label)';
+      setTimeout(function(){ btn.textContent = orig; btn.style.color = ''; }, 1800);
+    }
+  } catch(e) {}
+}
+
+function loadUserDefaults() {
+  // Returns merged defaults: DEFAULTS overridden by user-saved values
+  try {
+    var saved = JSON.parse(localStorage.getItem(USER_DEFAULTS_KEY));
+    if (saved) return Object.assign({}, DEFAULTS, saved);
+  } catch(e) {}
+  return DEFAULTS;
+}
+
+function restoreFactoryDefaults() {
+  try { localStorage.removeItem(USER_DEFAULTS_KEY); } catch(e) {}
+  // Apply factory DEFAULTS to all fields
+  Object.entries(DEFAULTS).forEach(function([id, val]) {
+    var el = document.getElementById(id);
+    if (el) el.value = val;
+  });
+  // Clear airport wx, coords, winds — same as full reset
+  ['dep-wx','arr-wx'].forEach(function(id){
+    var el=document.getElementById(id);
+    if(el){ el.style.display='none'; el.innerHTML=''; }
+  });
+  if(typeof airportCoords!=='undefined'){ airportCoords.dep=null; airportCoords.arr=null; }
+  if(typeof updateAirportDistance!=='undefined') updateAirportDistance();
+  var windsWx=document.getElementById('winds-wx');
+  if(windsWx){ windsWx.style.display='none'; windsWx.innerHTML=''; }
+  if(typeof cachedWindsData!=='undefined'){
+    cachedWindsData.dep=null; cachedWindsData.mid=null;
+    cachedWindsData.arr=null; cachedWindsData.routeHdg=null; cachedWindsData.isaDev=null;
+  }
+  var tasEl=document.getElementById('tas'); var ffEl=document.getElementById('ff-cruise');
+  if(tasEl) delete tasEl.dataset.userEdited;
+  if(ffEl)  delete ffEl.dataset.userEdited;
+  lastPlan=null; try{localStorage.removeItem(PLAN_KEY);}catch(e){}
+  // Brief confirmation
+  var btn=document.getElementById('save-defaults-btn');
+  if(btn){ var o=btn.textContent; btn.textContent='Restored ✓'; btn.style.color='var(--amber-label)';
+    setTimeout(function(){ btn.textContent=o; btn.style.color=''; },1800); }
+  update();
+}
+
+window.saveUserDefaults    = saveUserDefaults;
+window.restoreFactoryDefaults = restoreFactoryDefaults;
+
 function resetDefaults(){
-  Object.entries(DEFAULTS).forEach(([id,val])=>{
+  // Use user's saved defaults if set, otherwise factory DEFAULTS
+  var activeDefaults = loadUserDefaults();
+  Object.entries(activeDefaults).forEach(([id,val])=>{
     const el=document.getElementById(id);
     if(!el) return;
     el.value=val;
@@ -1148,8 +1245,13 @@ document.querySelectorAll('input,select').forEach(function(el){
 });
 window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',update);
 update();
+// Apply user defaults on startup, then real perf data
+var _startDefaults = loadUserDefaults();
+Object.entries(_startDefaults).forEach(function([id,val]){
+  var el=document.getElementById(id); if(el) el.value=val;
+});
 // Apply real perf data to fields on initial load (alt slider hasn't moved yet)
-applyRealPerfToFields(DEFAULTS.alt);
+applyRealPerfToFields(parseInt(document.getElementById('alt').value)||DEFAULTS.alt);
 
 document.getElementById('dep-icao').addEventListener('keydown', function(e){ if(e.key==='Enter') fetchAirport('dep'); });
 document.getElementById('arr-icao').addEventListener('keydown', function(e){ if(e.key==='Enter') fetchAirport('arr'); });
@@ -1787,12 +1889,14 @@ function showTab(name) {
   var altTab = document.getElementById('tab-altplan');
   if (altTab) altTab.style.display = name==='altplan' ? 'block' : 'none';
   // Update bottom nav active state
-  ['plan','perf','log','altplan'].forEach(function(t) {
+  ['plan','perf','log','altplan','help'].forEach(function(t) {
     var btn = document.getElementById('tab-'+t+'-btn');
     if (btn) btn.classList.toggle('active', t===name);
   });
   var resetBtn = document.getElementById('reset-btn');
-  if (resetBtn) resetBtn.style.display = (name==='perf'||name==='log'||name==='altplan') ? 'none' : '';
+  if (resetBtn) resetBtn.style.display = (name==='perf'||name==='log'||name==='altplan'||name==='help') ? 'none' : '';
+  var saveBtn = document.getElementById('save-defaults-btn');
+  if (saveBtn) saveBtn.style.display = (name==='perf'||name==='log'||name==='altplan'||name==='help') ? 'none' : '';
   if (name==='perf') refreshPerfPage();
   if (name==='log') { populateLogForm(); refreshLogPage(); }
   if (name==='altplan') refreshAltPlan();
@@ -2732,6 +2836,124 @@ loadChart('chart.umd.js', function() { init(); });
 </div>
 </div> <!-- end tab-altplan -->
 
+<div id="tab-help" class="tab-pane" style="display:none;">
+<div class="container" style="padding-bottom:2rem;">
+
+  <div class="card">
+    <div class="section-label">About PropJet Go</div>
+    <p style="font-size:13px;color:var(--text2);line-height:1.65;margin:0 0 0.75rem;">
+      PropJet Go is a flight planning tool built specifically for the Lancair IV-PT with the Walter M601-E turboprop engine. It calculates climb, cruise, and descent fuel and time for IFR planning, compares cruise altitudes, and learns your specific aircraft's performance over time.
+    </p>
+    <p style="font-size:13px;color:var(--text2);line-height:1.65;margin:0;">
+      All core calculations run offline. Weather and winds are fetched from live sources when available but are not required.
+    </p>
+  </div>
+
+  <div class="card">
+    <div class="section-label">Planner tab</div>
+    <div style="font-size:13px;color:var(--text2);line-height:1.7;">
+      <p style="margin:0 0 0.6rem;"><strong style="color:var(--text);">Airports</strong> — Enter ICAO identifiers and tap Load. Field elevation fills automatically. METAR weather and winds aloft are fetched in the background. The distance between airports auto-fills the distance slider.</p>
+      <p style="margin:0 0 0.6rem;"><strong style="color:var(--text);">Winds aloft</strong> — Fetched from the Open-Meteo GFS model at departure, midpoint, and arrival. Average headwind or tailwind is auto-filled. ISA deviation at cruise altitude is displayed and used to select real performance data.</p>
+      <p style="margin:0 0 0.6rem;"><strong style="color:var(--text);">Altitude bar chart</strong> — Shows total block fuel for each cruise altitude from 5,000 ft to FL280. The highlighted blue bar is your selected altitude. The green bar is the most fuel-efficient altitude. FL220 is the M601-E sweet spot — above it, efficiency degrades as the engine becomes ITT-limited.</p>
+      <p style="margin:0 0 0.6rem;"><strong style="color:var(--text);">Alt Req'd badge</strong> — Appears between the airport cards if the destination METAR fails the FAA 1-2-3 rule (ceiling below 2,000 ft or visibility below 3 sm). This is a proxy using current METAR — always verify with the TAF for actual IFR planning.</p>
+      <p style="margin:0 0 0.6rem;"><strong style="color:var(--text);">Initial Fuel Load</strong> — Total fuel on board at engine start, before taxi. Taxi fuel is subtracted before trip fuel is calculated.</p>
+      <p style="margin:0;"><strong style="color:var(--text);">Min takeoff fuel</strong> — The minimum fuel needed at the gate to complete the trip with your full reserve and alternate fuel. Does not include taxi fuel.</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="section-label">Flight calculations</div>
+    <div style="font-size:13px;color:var(--text2);line-height:1.7;">
+      <p style="margin:0 0 0.6rem;"><strong style="color:var(--text);">Climb</strong> — Climb airspeed is approximated at 55% of cruise TAS. Climb rate is user-set (default 1,400 fpm). Fuel burn uses the climb FF field (default 40 gph). Ground distance during climb accounts for wind.</p>
+      <p style="margin:0 0 0.6rem;"><strong style="color:var(--text);">Cruise</strong> — Fuel and time for the level segment between end of climb and top of descent. Groundspeed = TAS ± wind component. If the leg is too short to reach cruise altitude, the entire leg is treated as a climb with no cruise segment.</p>
+      <p style="margin:0 0 0.6rem;"><strong style="color:var(--text);">Descent</strong> — The app models a three-phase profile at a constant 2.5° FPA, matching the Garmin GTN 750 VNAV descent setting:</p>
+      <div style="margin:0 0 0.75rem 1rem;border-left:2px solid var(--border2);padding-left:0.75rem;">
+        <div style="margin-bottom:4px;"><strong style="color:var(--text);">Phase 1 — Cruise altitude → 10,000 ft MSL:</strong> 290 KTAS. Power stays up at approximately 660 ITT. At 2.5° FPA and 290 KTAS, the aircraft descends at roughly 1,280 fpm and covers about 45 nm from FL220.</div>
+        <div style="margin-bottom:4px;"><strong style="color:var(--text);">Phase 2 — 10,000 ft MSL → 2,661 ft AGL:</strong> 240 KIAS, complying with the FAA 250-knot rule below 10,000 ft. KIAS is held constant so KTAS decreases as density increases during descent. This phase covers approximately 24 nm.</div>
+        <div><strong style="color:var(--text);">Phase 3 — Final 10 nm:</strong> 160 KIAS for the terminal slowdown. This phase always begins at 2,661 ft above the arrival airport elevation — so the transition altitude is AGL-relative, not a fixed MSL number. At KAFO (6,204 ft MSL) Phase 3 begins at 8,865 ft MSL; at a sea-level airport it begins at 2,661 ft MSL.</div>
+      </div>
+      <p style="margin:0 0 0.6rem;">Because the FPA is fixed at 2.5°, vertical speed is not constant — it is derived geometrically from TAS at each moment: <strong style="color:var(--text);">VS (fpm) = TAS × sin(2.5°) × 101.27</strong>. Higher TAS means a steeper descent in feet per minute, even though the flight path angle stays the same. Each phase uses a three-point average TAS (top, middle, and bottom of the phase altitude band) to compute time and distance for that phase. The results are combined into a single weighted-average TAS — total descent distance divided by total descent time — which the planner uses to compute TOD and block fuel.</p>
+      <p style="margin:0;"><strong style="color:var(--text);">TOD (Top of Descent)</strong> — The distance from destination where descent begins. From FL220 to a sea-level airport this is approximately 79 nm. TOD is shorter for lower cruise altitudes and longer for FL280 (~102 nm), because more altitude requires more distance to lose at the same FPA.</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="section-label">Fuel accounting</div>
+    <div style="font-size:13px;color:var(--text2);line-height:1.7;">
+      <p style="margin:0 0 0.6rem;">Fuel is tracked through this chain: <strong style="color:var(--text);">Load → taxi → trip burn → fuel at destination → reserve → alternate fuel → margin</strong></p>
+      <p style="margin:0 0 0.6rem;"><strong style="color:var(--text);">Reserve fuel</strong> — Set in minutes at a reserve fuel flow rate (default 38 gph × 60 min = 38 gal). This is your personal reserve policy, not the FAR minimum.</p>
+      <p style="margin:0 0 0.6rem;"><strong style="color:var(--text);">Alternate fuel</strong> — Estimated fuel to fly from destination to your filed alternate. Uses 38 gph at 256 KTAS (approximate 220 KIAS at 10,000 ft ISA).</p>
+      <p style="margin:0;"><strong style="color:var(--text);">Margin</strong> — Fuel remaining at destination minus reserve and alternate fuel. Green above 10 gal, amber 0–10 gal, red negative.</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="section-label">Alternate tab</div>
+    <div style="font-size:13px;color:var(--text2);line-height:1.7;">
+      <p style="margin:0 0 0.6rem;">Enter an alternate airport ICAO and tap Load. Distance from your destination to the alternate is calculated automatically from airport coordinates.</p>
+      <p style="margin:0 0 0.6rem;">The divert leg uses the same full three-phase compute engine as the main planner. Set a divert cruise altitude (default 10,000 ft) and wind for the divert leg.</p>
+      <p style="margin:0 0 0.6rem;"><strong style="color:var(--text);">Fuel legality (FAR 91.167)</strong> — Two standards are shown side by side: your personal reserve policy, and the FAR minimum (45 minutes of cruise fuel at the alternate). The app evaluates both so you can see the regulatory floor and your personal buffer at the same time.</p>
+      <p style="margin:0;"><strong style="color:var(--text);">Weather legality</strong> — The alternate airport METAR is checked against standard IFR alternate minimums: ceiling ≥ 1,000 ft and visibility ≥ 2 sm (non-precision approach standard).</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="section-label">Perf Data tab</div>
+    <div style="font-size:13px;color:var(--text2);line-height:1.7;">
+      <p style="margin:0 0 0.6rem;">Record actual TAS, fuel flow, and ISA deviation from real flights. Each data point is stored by altitude and replaces the generic model curve at that altitude.</p>
+      <p style="margin:0 0 0.6rem;">The generic model uses FL220 as the efficiency peak (285 KTAS, 30.0 gph) with a V-shaped fuel flow curve — improving going up to FL220, degrading above it. This reflects the M601-E's flat-rating ceiling. The model is a starting point only.</p>
+      <p style="margin:0 0 0.6rem;">As you add real data points, the app interpolates between them using altitude proximity and ISA deviation weighting. The generic curve only fills the gaps. <strong style="color:var(--text);">The app grows more accurate with every flight you log.</strong></p>
+      <p style="margin:0;">Export your performance database as CSV for backup or analysis. Import it back on a new device.</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="section-label">Act vs Plan tab</div>
+    <div style="font-size:13px;color:var(--text2);line-height:1.7;">
+      <p style="margin:0 0 0.6rem;">After each flight, log what actually happened: cruise altitude, TAS, fuel flow, ISA deviation, and ITT. Planned values are pulled automatically from the last planner run.</p>
+      <p style="margin:0 0 0.6rem;">Deltas are color-coded: green when actual beats the plan (more efficient), amber or red when performance was worse than predicted.</p>
+      <p style="margin:0;">When you save a flight log entry with ISA deviation filled in, the TAS and FF data are automatically added to your Perf Data table — no double entry required.</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="section-label">FAA regulations referenced</div>
+    <div style="font-size:13px;color:var(--text2);line-height:1.7;">
+      <p style="margin:0 0 0.6rem;"><strong style="color:var(--text);">FAR 91.167 (IFR fuel requirements)</strong> — For IFR flight requiring an alternate, fuel must cover: (1) fly to destination, (2) fly to alternate, (3) fly 45 minutes at normal cruise.</p>
+      <p style="margin:0 0 0.6rem;"><strong style="color:var(--text);">1-2-3 Rule</strong> — An alternate is not required if the destination forecast shows ceiling ≥ 2,000 ft and visibility ≥ 3 sm from 1 hour before to 1 hour after ETA. The app checks current METAR as a proxy — verify with the TAF.</p>
+      <p style="margin:0;"><strong style="color:var(--text);">250-knot rule (FAR 91.117)</strong> — No aircraft may exceed 250 KIAS below 10,000 ft MSL. The descent model reflects this with a transition to 240 KIAS below 10,000 ft.</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="section-label">Data &amp; privacy</div>
+    <p style="font-size:13px;color:var(--text2);line-height:1.65;margin:0;">
+      All planning data, performance records, and flight logs are stored locally on your device. No account is required. The only network requests are to Open-Meteo (winds aloft, anonymous) and CheckWX (METAR/TAF, anonymous API key). No personal data is transmitted or stored externally.
+    </p>
+  </div>
+
+  <div class="card">
+    <div class="section-label">Your defaults</div>
+    <div style="font-size:13px;color:var(--text2);line-height:1.7;">
+      <p style="margin:0 0 0.75rem;">Tap <strong style="color:var(--text);">Save Defaults</strong> in the header any time you want to lock in your current planner settings as the starting point for every new session. Saved defaults persist across restarts.</p>
+      <p style="margin:0 0 0.875rem;">Fields that are saved: cruise altitude, cruise TAS, climb FF, cruise FF, descent FF, climb rate, reserve GPH, reserve minutes, taxi fuel, alternate distance, dep/arr ICAO, dep/arr elevations.</p>
+      <p style="margin:0 0 0.875rem;">Fields that are <em>not</em> saved: fuel on board, wind speed and direction. Those are flight-specific and should be entered fresh each session.</p>
+      <button onclick="restoreFactoryDefaults()"
+        style="font-size:13px;padding:8px 16px;border-radius:var(--radius);border:0.5px solid var(--border2);background:transparent;color:var(--text2);cursor:pointer;">
+        Restore Factory Defaults
+      </button>
+      <p style="margin:0.5rem 0 0;font-size:11px;color:var(--text3);">Clears your saved defaults and restores the original factory values.</p>
+    </div>
+  </div>
+
+  <div style="text-align:center;padding:1rem 0 0.5rem;font-size:11px;color:var(--text3);">
+    PropJet Go · Lancair IV-PT Performance Planner · v1.0
+  </div>
+
+</div>
+</div> <!-- end tab-help -->
+
+
 <nav class="bottom-nav" id="bottom-nav">
   <button id="tab-plan-btn" class="active" onclick="showTab('plan')">
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -2757,6 +2979,14 @@ loadChart('chart.umd.js', function() { init(); });
       <path d="M7 7h6M7 10h6M7 13h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
     </svg>
     Act vs Plan
+  </button>
+  <button id="tab-help-btn" onclick="showTab('help')">
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+      <circle cx="10" cy="10" r="7.5" stroke="currentColor" stroke-width="1.5"/>
+      <path d="M10 13.5v-.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      <path d="M10 11c0-1.5 2-1.5 2-3a2 2 0 10-4 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+    </svg>
+    Help
   </button>
 </nav>
 
