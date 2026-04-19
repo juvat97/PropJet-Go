@@ -1888,6 +1888,8 @@ function showTab(name) {
   if (logTab) logTab.style.display = name==='log' ? 'block' : 'none';
   var altTab = document.getElementById('tab-altplan');
   if (altTab) altTab.style.display = name==='altplan' ? 'block' : 'none';
+  var helpTab = document.getElementById('tab-help');
+  if (helpTab) helpTab.style.display = name==='help' ? 'block' : 'none';
   // Update bottom nav active state
   ['plan','perf','log','altplan','help'].forEach(function(t) {
     var btn = document.getElementById('tab-'+t+'-btn');
