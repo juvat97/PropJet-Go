@@ -462,6 +462,11 @@
       <span class="hint">220 KIAS / 1500 fpm</span>
     </div>
     <div class="row">
+      <label>Descent FPA (°)</label>
+      <input type="number" id="desc-fpa" value="2.5" min="1.0" max="6.0" step="0.1" onfocus="this.select()" inputmode="decimal">
+      <span class="hint" id="desc-vs-display">—</span>
+    </div>
+    <div class="row">
       <label>Avg climb rate (fpm)</label>
       <input type="number" id="climb-rate" value="1400" min="500" max="5000" step="100" onfocus="this.select()" inputmode="decimal">
     </div>
@@ -772,7 +777,7 @@ const DEFAULTS = {
   'alt-dist': 0, 'dep-elev': 1000, 'arr-elev': 1000,
   dist: 500, alt: 22000, 'wind-spd': 0,
   'ff-climb': 40, 'ff-cruise': 30, 'ff-desc': 30,
-  'climb-rate': 1400, tas: 270,
+  'climb-rate': 1400, 'desc-fpa': 2.5, tas: 270,
   'dep-icao': 'KAFO', 'arr-icao': 'KGEU'
 };
 
@@ -791,30 +796,45 @@ function densityRatio(altFt) {
   return Math.pow(216.65/T_sl,4.256)*Math.exp(-(altM-11000)/6341.6);
 }
 function kiasToKtas(kias,altFt){ return kias/Math.sqrt(densityRatio(altFt)); }
-function avgDescentTas(cAlt,aAlt){
-  // Lancair IV-PT three-phase descent (all at 2.5° FPA):
-  //   Phase 1: cruise alt → 10,000ft  →  290 KTAS (power-on, 660 ITT)
-  //   Phase 2: 10,000ft → ~3,661ft    →  240 KIAS (below 10k rule)
-  //   Phase 3: ~3,661ft → arrival     →  160 KIAS (final 10nm terminal slowdown)
+function avgDescentTas(cAlt,aAlt,fpaDeg){
+  // Three-phase descent. All phases use the user-selected FPA (default 2.5°).
+  //   Phase 1: cruise alt → 10,000ft  →  290 KTAS
+  //   Phase 2: 10,000ft → ~trans3 ft  →  240 KIAS
+  //   Phase 3: final 10nm             →  160 KIAS
   // Returns weighted-average TAS = total_dist / total_time
-  const FPA_SIN = Math.sin(2.5*Math.PI/180), FPA_COS = Math.cos(2.5*Math.PI/180);
-  function phaseAvg(tasFn, atop, abot) {
-    if (atop <= abot) return {mins:0, dist:0};
+  if(!fpaDeg || isNaN(fpaDeg)) fpaDeg=2.5;
+  fpaDeg=Math.max(1.0,Math.min(6.0,fpaDeg));
+  const FPA_SIN=Math.sin(fpaDeg*Math.PI/180), FPA_COS=Math.cos(fpaDeg*Math.PI/180);
+  function phaseAvg(tasFn,atop,abot){
+    if(atop<=abot) return {mins:0,dist:0};
     var mid=(atop+abot)/2;
     var avgTas=(tasFn(atop)+tasFn(mid)+tasFn(abot))/3;
     var avgVS=avgTas*FPA_SIN*101.27;
     var mins=(atop-abot)/Math.max(1,avgVS);
-    return {mins:mins, dist:avgTas*FPA_COS*(mins/60)};
+    return {mins:mins,dist:avgTas*FPA_COS*(mins/60)};
   }
-  var trans3=Math.min(10000, aAlt+2661);
+  // Phase 3 transition: 10nm at 160 KIAS / selected FPA above arrival
+  // Pre-solved numerically: trans3_agl ≈ 10nm × sin(FPA) × 101.27 / (avgTAS_160 × FPA_SIN / FPA_COS)
+  // Simpler: iterate — but use the analytic approximation for speed
+  // At low alt, 160 KIAS ≈ 180 KTAS; 10nm ground = time × TAS × cos(FPA)
+  // time = alt_delta / (TAS × sin(FPA) × 101.27), dist = TAS × cos(FPA) × time
+  // dist = TAS × cos(FPA) × alt_delta / (TAS × sin(FPA) × 101.27)
+  //      = cos(FPA)/sin(FPA) × alt_delta / 101.27 = alt_delta / (tan(FPA) × 101.27)
+  // alt_delta for 10nm = 10 × tan(FPA) × 101.27  (in feet, approx)
+  var trans3AGL = Math.min(10000-aAlt, 10 * Math.tan(fpaDeg*Math.PI/180) * 101.27 * 60);
+  // The ×60 converts knots-minutes to feet: 1 nm = 6076 ft ≈ 60×101.27 ft
+  // Simplify: 10nm vertical drop = 10 × tan(fpa°) × 6076 ft
+  trans3AGL = Math.min(10000-aAlt, 10 * Math.tan(fpaDeg*Math.PI/180) * 6076);
+  trans3AGL = Math.max(100, trans3AGL);
+  var trans3=Math.min(10000, aAlt+trans3AGL);
   var p1={mins:0,dist:0}, p2={mins:0,dist:0};
   if(cAlt>10000){
-    p1=phaseAvg(function(a){return 290;}, cAlt, 10000);
-    p2=phaseAvg(function(a){return kiasToKtas(240,a);}, 10000, trans3);
+    p1=phaseAvg(function(a){return 290;},cAlt,10000);
+    p2=phaseAvg(function(a){return kiasToKtas(240,a);},10000,trans3);
   } else if(cAlt>trans3){
-    p2=phaseAvg(function(a){return kiasToKtas(240,a);}, cAlt, trans3);
+    p2=phaseAvg(function(a){return kiasToKtas(240,a);},cAlt,trans3);
   }
-  var p3=phaseAvg(function(a){return kiasToKtas(160,a);}, trans3, aAlt);
+  var p3=phaseAvg(function(a){return kiasToKtas(160,a);},trans3,aAlt);
   var totalMins=p1.mins+p2.mins+p3.mins;
   var totalDist=p1.dist+p2.dist+p3.dist;
   return totalDist/Math.max(0.01,totalMins/60);
@@ -839,8 +859,9 @@ function setMetricColor(id,color){
 }
 
 function compute(distNm, cAlt, depElev, arrElev, climbGph, cruiseGph, descGph,
-                 climbRate, tas, ws, wd) {
-  // descRate removed — descent VS derived from 2.5° FPA geometry
+                 climbRate, tas, ws, wd, fpaDeg) {
+  // Descent VS derived from FPA geometry (user-selectable, default 2.5°)
+  if(!fpaDeg||isNaN(fpaDeg)) fpaDeg=2.5;
   // Ground speed and wind component at cruise altitude
   const gs = getGS(tas, ws, wd);
   // ws_signed: positive = headwind (reduces GS), negative = tailwind (increases GS)
@@ -858,10 +879,9 @@ function compute(distNm, cAlt, depElev, arrElev, climbGph, cruiseGph, descGph,
   // ── Descent ──────────────────────────────────────────────────────────────
   // 2.5° FPA (autopilot VNAV), 220 KIAS, ~25 gph, NP ~1800 rpm
   // VS is NOT fixed — it's derived from geometry: VS(fpm) = avgTAS × sin(2.5°) × 101.27
-  const FPA_DEG        = 2.5;
   const descDelta      = Math.max(0, cAlt - arrElev);
-  const avgDesTas      = avgDescentTas(cAlt, arrElev);   // 220 KIAS avg across 3 waypoints
-  const avgDescVS_fpm  = avgDesTas * Math.sin(FPA_DEG * Math.PI / 180) * 101.27;
+  const avgDesTas      = avgDescentTas(cAlt, arrElev, fpaDeg);   // 220 KIAS avg across 3 waypoints
+  const avgDescVS_fpm  = avgDesTas * Math.sin(fpaDeg * Math.PI / 180) * 101.27;
   const descMinsRaw    = descDelta / Math.max(1, avgDescVS_fpm);
   const descGS         = Math.max(10, avgDesTas - ws_signed);
   const descGroundDistUncapped = descGS * (descMinsRaw / 60);
@@ -915,6 +935,7 @@ function update(){
   const ffDesc     = parseFloat(document.getElementById('ff-desc').value)||10;
   const climbRate  = parseFloat(document.getElementById('climb-rate').value)||1400;
   const tas        = parseFloat(document.getElementById('tas').value)||280;
+  const fpaDeg     = parseFloat(document.getElementById('desc-fpa').value)||2.5;
   const fob        = parseFloat(document.getElementById('fob').value)||145;
   const reserveGph = parseFloat(document.getElementById('reserve-gph').value)||38;
   const reserveMinsRaw = document.getElementById('reserve-mins').value;
@@ -940,7 +961,7 @@ function update(){
     var lo=25, hi=1400;
     for(var i=0; i<20; i++){
       var mid = Math.round((lo+hi)/2);
-      var rT  = compute(mid,alt,depElev,arrElev,ffClimb,ffCruiseEff,ffDesc,climbRate,tasEff,ws,wd);
+      var rT  = compute(mid,alt,depElev,arrElev,ffClimb,ffCruiseEff,ffDesc,climbRate,tasEff,ws,wd,fpaDeg);
       if(rT.totalGal+fixedCosts <= fobAfterTaxi){ maxDist=mid; lo=mid+1; } else { hi=mid-1; }
     }
   }
@@ -959,7 +980,7 @@ function update(){
   document.getElementById('alt-fuel-hint').textContent    = '= '+altFuelGal+' gal';
 
   // ── Compute flight ────────────────────────────────────────────────────────
-  const r = compute(dist,alt,depElev,arrElev,ffClimb,ffCruiseEff,ffDesc,climbRate,tasEff,ws,wd);
+  const r = compute(dist,alt,depElev,arrElev,ffClimb,ffCruiseEff,ffDesc,climbRate,tasEff,ws,wd,fpaDeg);
 
   document.getElementById('r-cfuel').textContent       = r.climbGal;
   document.getElementById('r-ctime').textContent       = fmtTime(r.climbMins);
@@ -1063,7 +1084,7 @@ function update(){
       wsChart = Math.abs(hwComp);
       wdChart = hwComp >= 0 ? 'head' : 'tail';
     }
-    const res = compute(dist,a,depElev,arrElev,ffClimb,gph,ffDesc,climbRate,tasAdj,wsChart,wdChart);
+    const res = compute(dist,a,depElev,arrElev,ffClimb,gph,ffDesc,climbRate,tasAdj,wsChart,wdChart,fpaDeg);
     return res.noAlt ? null : res.totalGal;
   });
   const vf    = fuelData.filter(f=>f!==null);
@@ -1106,7 +1127,7 @@ function update(){
 
 // ── User-customisable defaults ────────────────────────────────────────────────
 var USER_DEFAULTS_KEY = 'propjet_user_defaults';
-var SAVEABLE_IDS = ['alt','ff-climb','ff-cruise','ff-desc','climb-rate',
+var SAVEABLE_IDS = ['alt','ff-climb','ff-cruise','ff-desc','climb-rate','desc-fpa',
   'tas','reserve-gph','reserve-mins','taxi-fuel','alt-dist','dep-elev','arr-elev',
   'dep-icao','arr-icao'];
 
@@ -1599,6 +1620,7 @@ function fetchWindsAloft() {
     var depElev   = parseFloat(document.getElementById('dep-elev').value)||0;
     var arrElev   = parseFloat(document.getElementById('arr-elev').value)||0;
     var tas       = parseFloat(document.getElementById('tas').value)||280;
+  var fpaDeg    = parseFloat(document.getElementById('desc-fpa').value)||2.5;
     var dist      = parseInt(document.getElementById('dist').value)||500;
     var climbRate = parseFloat(document.getElementById('climb-rate').value)||1400;
   
@@ -2255,7 +2277,7 @@ function refreshAltPlan() {
 
   var divert = _compute(altDist, altAlt, destElev, altElev,
                        ffClimb, ffCruise, ffDesc,
-                       climbRate, tas, altWs, altWd);
+                       climbRate, tas, altWs, altWd, fpaDeg);
 
   // Fuel at alternate after divert
   var altArrFuel = destFuel !== null ? +(destFuel - divert.totalGal).toFixed(1) : null;
