@@ -332,6 +332,27 @@
 </style>
 </head>
 <body>
+<header>
+  <div>
+    <h1>PropJet Go</h1>
+    <p>Lancair IV-PT Performance Planner</p>
+  </div>
+  <div style="display:flex;align-items:center;gap:6px;">
+    <button id="save-defaults-btn" onclick="saveUserDefaults()"
+      style="font-size:12px;padding:5px 10px;border-radius:var(--radius);border:0.5px solid var(--border2);background:transparent;color:var(--text2);cursor:pointer;white-space:nowrap;">
+      Save Defaults
+    </button>
+    <button class="reset-btn" id="reset-btn">Reset</button>
+    <button id="tab-help-btn-header" onclick="showTab('help')"
+      style="width:32px;height:32px;border-radius:50%;border:0.5px solid var(--border2);background:transparent;color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;flex-shrink:0;">
+      <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
+        <circle cx="10" cy="10" r="7.5" stroke="currentColor" stroke-width="1.5"/>
+        <path d="M10 13.5v-.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <path d="M10 11c0-1.5 2-1.5 2-3a2 2 0 10-4 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+    </button>
+  </div>
+</header>
 
 <div id="tab-plan" class="tab-pane active" style="display:block;">
 <div class="container">
@@ -3047,28 +3068,6 @@ loadChart('chart.umd.js', function() { init(); });
 </div>
 </div> <!-- end tab-help -->
 
-
-<header>
-  <div>
-    <h1>PropJet Go</h1>
-    <p>Lancair IV-PT Performance Planner</p>
-  </div>
-  <div style="display:flex;align-items:center;gap:6px;">
-    <button id="save-defaults-btn" onclick="saveUserDefaults()"
-      style="font-size:12px;padding:5px 10px;border-radius:var(--radius);border:0.5px solid var(--border2);background:transparent;color:var(--text2);cursor:pointer;white-space:nowrap;">
-      Save Defaults
-    </button>
-    <button class="reset-btn" id="reset-btn">Reset</button>
-    <button id="tab-help-btn-header" onclick="showTab('help')"
-      style="width:32px;height:32px;border-radius:50%;border:0.5px solid var(--border2);background:transparent;color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;flex-shrink:0;">
-      <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
-        <circle cx="10" cy="10" r="7.5" stroke="currentColor" stroke-width="1.5"/>
-        <path d="M10 13.5v-.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        <path d="M10 11c0-1.5 2-1.5 2-3a2 2 0 10-4 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-      </svg>
-    </button>
-  </div>
-</header>
 
 <nav class="bottom-nav" id="bottom-nav">
   <button id="tab-plan-btn" class="active" onclick="showTab('plan')">
