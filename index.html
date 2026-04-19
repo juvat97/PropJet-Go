@@ -464,17 +464,18 @@
     <div class="row">
       <label>Descent FPA (°)</label>
       <input type="number" id="desc-fpa" value="2.5" min="1.0" max="6.0" step="0.1" onfocus="this.select()" inputmode="decimal">
-      <span class="hint" id="desc-vs-display">—</span>
+      <span class="hint">sets VS below</span>
+    </div>
+    <div class="row">
+      <label>Avg Descent VS (fpm)</label>
+      <input type="number" id="desc-vs" placeholder="—" min="200" max="3000" step="10" onfocus="this.select()" inputmode="decimal" style="color:var(--text2);">
+      <span class="hint">or enter VS to set FPA</span>
     </div>
     <div class="row">
       <label>Avg climb rate (fpm)</label>
       <input type="number" id="climb-rate" value="1400" min="500" max="5000" step="100" onfocus="this.select()" inputmode="decimal">
     </div>
-    <div class="row">
-      <label>Descent VS (fpm)</label>
-      <span class="val" id="desc-vs-display" style="font-size:14px;color:var(--text2);">—</span>
-      <span class="hint">2.5° FPA · varies with alt</span>
-    </div>
+
     <div class="row">
       <label>Cruise TAS (kts)</label>
       <input type="number" id="tas" value="270" min="150" max="360" step="1" onfocus="this.select()" inputmode="decimal">
@@ -1002,8 +1003,12 @@ function update(){
   document.getElementById('r-ddist').textContent       = r.descDist;
   document.getElementById('r-desc-tas').textContent    = r.avgDesTas;
   // Show computed avg VS from 2.5° FPA in the inputs area
-  var vsDisp = document.getElementById('desc-vs-display');
-  if (vsDisp) vsDisp.textContent = r.avgDescVS ? '~'+r.avgDescVS+' avg' : '—';
+  // Populate Avg Descent VS field from computed result (only if not currently being edited)
+  var descVsEl = document.getElementById('desc-vs');
+  if (descVsEl && document.activeElement !== descVsEl) {
+    descVsEl.value = r.avgDescVS || '';
+    descVsEl.style.color = 'var(--text2)';
+  }
   document.getElementById('r-total').textContent       = r.totalGal;
   document.getElementById('r-ttime').textContent       = fmtTime(r.totalMins);
   // Cache planned values for flight log
@@ -1262,6 +1267,41 @@ applyRealPerfToFields(parseInt(document.getElementById('alt').value)||DEFAULTS.a
 
 document.getElementById('dep-icao').addEventListener('keydown', function(e){ if(e.key==='Enter') fetchAirport('dep'); });
 document.getElementById('arr-icao').addEventListener('keydown', function(e){ if(e.key==='Enter') fetchAirport('arr'); });
+
+// ── FPA ↔ VS bidirectional sync ───────────────────────────────────────────────
+// When FPA changes: recalculate VS and populate desc-vs
+document.getElementById('desc-fpa').addEventListener('input', function() {
+  var fpa = parseFloat(this.value);
+  if (!isNaN(fpa) && fpa > 0) {
+    var alt = parseInt(document.getElementById('alt').value) || 22000;
+    var aEl = parseFloat(document.getElementById('arr-elev').value) || 1000;
+    var avgTas = avgDescentTas(alt, aEl, fpa);
+    var vs = Math.round(avgTas * Math.sin(fpa * Math.PI / 180) * 101.27);
+    document.getElementById('desc-vs').value = vs;
+    document.getElementById('desc-vs').style.color = '';
+  }
+  update();
+});
+
+// When VS changes: back-calculate FPA from VS and current avgTAS
+document.getElementById('desc-vs').addEventListener('input', function() {
+  var vs = parseFloat(this.value);
+  var fpaEl = document.getElementById('desc-fpa');
+  if (!isNaN(vs) && vs > 0) {
+    var alt = parseInt(document.getElementById('alt').value) || 22000;
+    var aEl = parseFloat(document.getElementById('arr-elev').value) || 1000;
+    var currFpa = parseFloat(fpaEl.value) || 2.5;
+    // Use current avgTAS to back-calculate FPA (one iteration is accurate enough)
+    var avgTas = avgDescentTas(alt, aEl, currFpa);
+    var sinFpa = vs / (avgTas * 101.27);
+    sinFpa = Math.max(-1, Math.min(1, sinFpa)); // clamp for arcsin safety
+    var fpa = Math.asin(sinFpa) * 180 / Math.PI;
+    fpa = Math.max(1.0, Math.min(6.0, fpa));
+    fpaEl.value = Math.round(fpa * 10) / 10; // round to 1 decimal
+    this.style.color = '';
+  }
+  update();
+});
 document.getElementById('alt-icao') && document.getElementById('alt-icao').addEventListener('keydown', function(e){ if(e.key==='Enter') fetchAltAirport(); });
 
 // Alternate tab input listeners
@@ -2873,7 +2913,8 @@ loadChart('chart.umd.js', function() { init(); });
       <p style="margin:0 0 0.6rem;"><strong style="color:var(--text);">Altitude bar chart</strong> — Shows total block fuel for each cruise altitude from 5,000 ft to FL280. The highlighted blue bar is your selected altitude. The green bar is the most fuel-efficient altitude. FL220 is the M601-E sweet spot — above it, efficiency degrades as the engine becomes ITT-limited.</p>
       <p style="margin:0 0 0.6rem;"><strong style="color:var(--text);">Alt Req'd badge</strong> — Appears between the airport cards if the destination METAR fails the FAA 1-2-3 rule (ceiling below 2,000 ft or visibility below 3 sm). This is a proxy using current METAR — always verify with the TAF for actual IFR planning.</p>
       <p style="margin:0 0 0.6rem;"><strong style="color:var(--text);">Initial Fuel Load</strong> — Total fuel on board at engine start, before taxi. Taxi fuel is subtracted before trip fuel is calculated.</p>
-      <p style="margin:0;"><strong style="color:var(--text);">Min takeoff fuel</strong> — The minimum fuel needed at the gate to complete the trip with your full reserve and alternate fuel. Does not include taxi fuel.</p>
+      <p style="margin:0 0 0.6rem;"><strong style="color:var(--text);">Min takeoff fuel</strong> — The minimum fuel needed at the gate to complete the trip with your full reserve and alternate fuel. Does not include taxi fuel.</p>
+      <p style="margin:0;"><strong style="color:var(--text);">Save Defaults</strong> — The button in the top-right header saves your current planner settings as your personal defaults. See the Your Defaults section at the bottom of this page for details.</p>
     </div>
   </div>
 
@@ -2882,13 +2923,18 @@ loadChart('chart.umd.js', function() { init(); });
     <div style="font-size:15px;color:var(--text);line-height:1.7;">
       <p style="margin:0 0 0.6rem;"><strong style="color:var(--text);">Climb</strong> — Climb airspeed is approximated at 55% of cruise TAS. Climb rate is user-set (default 1,400 fpm). Fuel burn uses the climb FF field (default 40 gph). Ground distance during climb accounts for wind.</p>
       <p style="margin:0 0 0.6rem;"><strong style="color:var(--text);">Cruise</strong> — Fuel and time for the level segment between end of climb and top of descent. Groundspeed = TAS ± wind component. If the leg is too short to reach cruise altitude, the entire leg is treated as a climb with no cruise segment.</p>
-      <p style="margin:0 0 0.6rem;"><strong style="color:var(--text);">Descent</strong> — The app models a three-phase profile at a constant 2.5° FPA, matching the Garmin GTN 750 VNAV descent setting:</p>
+      <p style="margin:0 0 0.6rem;"><strong style="color:var(--text);">Descent</strong> — The app models a three-phase profile using your chosen flight path angle (FPA). The default is 2.5°, matching the Garmin GTN 750 VNAV descent setting, but you can change it:</p>
       <div style="margin:0 0 0.75rem 1rem;border-left:2px solid var(--border2);padding-left:0.75rem;">
-        <div style="margin-bottom:4px;"><strong style="color:var(--text);">Phase 1 — Cruise altitude → 10,000 ft MSL:</strong> 290 KTAS. Power stays up at approximately 660 ITT. At 2.5° FPA and 290 KTAS, the aircraft descends at roughly 1,280 fpm and covers about 45 nm from FL220.</div>
-        <div style="margin-bottom:4px;"><strong style="color:var(--text);">Phase 2 — 10,000 ft MSL → 2,661 ft AGL:</strong> 240 KIAS, complying with the FAA 250-knot rule below 10,000 ft. KIAS is held constant so KTAS decreases as density increases during descent. This phase covers approximately 24 nm.</div>
+        <p style="margin:0 0 0.4rem;"><strong style="color:var(--text);">Descent FPA (°)</strong> — Enter your desired flight path angle. The Avg Descent VS field below it auto-calculates the weighted-average vertical speed across all three descent phases at your current cruise altitude.</p>
+        <p style="margin:0;"><strong style="color:var(--text);">Avg Descent VS (fpm)</strong> — Alternatively, enter a vertical speed and the app back-calculates the FPA required to achieve it. The two fields are linked: change either one and the other updates automatically. The VS shown is a weighted average — actual VS varies by phase since it is derived from TAS × sin(FPA°) × 101.27, and TAS changes with altitude.</p>
+      </div>
+      <p style="margin:0 0 0.6rem;">The three descent phases are:</p>
+      <div style="margin:0 0 0.75rem 1rem;border-left:2px solid var(--border2);padding-left:0.75rem;">
+        <div style="margin-bottom:4px;"><strong style="color:var(--text);">Phase 1 — Cruise altitude → 10,000 ft MSL:</strong> 290 KTAS. Power stays up at approximately 660 ITT. At the default 2.5° FPA and 290 KTAS, the aircraft descends at roughly 1,280 fpm and covers about 45 nm from FL220. A steeper FPA increases VS and shortens the descent ground distance.</div>
+        <div style="margin-bottom:4px;"><strong style="color:var(--text);">Phase 2 — 10,000 ft MSL → Phase 3 transition:</strong> 240 KIAS, complying with the FAA 250-knot rule below 10,000 ft. KIAS is held constant so KTAS decreases as density increases during descent. At the default 2.5° FPA this phase covers approximately 24 nm. The transition altitude to Phase 3 is AGL-relative and also scales with your chosen FPA — a steeper angle reaches the transition at a lower AGL height.</div>
         <div><strong style="color:var(--text);">Phase 3 — Final 10 nm:</strong> 160 KIAS for the terminal slowdown. This phase always begins at 2,661 ft above the arrival airport elevation — so the transition altitude is AGL-relative, not a fixed MSL number. At KAFO (6,204 ft MSL) Phase 3 begins at 8,865 ft MSL; at a sea-level airport it begins at 2,661 ft MSL.</div>
       </div>
-      <p style="margin:0 0 0.6rem;">Because the FPA is fixed at 2.5°, vertical speed is not constant — it is derived geometrically from TAS at each moment: <strong style="color:var(--text);">VS (fpm) = TAS × sin(2.5°) × 101.27</strong>. Higher TAS means a steeper descent in feet per minute, even though the flight path angle stays the same. Each phase uses a three-point average TAS (top, middle, and bottom of the phase altitude band) to compute time and distance for that phase. The results are combined into a single weighted-average TAS — total descent distance divided by total descent time — which the planner uses to compute TOD and block fuel.</p>
+      <p style="margin:0 0 0.6rem;">Because the FPA is constant through the descent, vertical speed is not — it is derived geometrically from TAS at each moment: <strong style="color:var(--text);">VS (fpm) = TAS × sin(FPA°) × 101.27</strong>. Higher TAS means a higher vertical speed in feet per minute, even though the flight path angle stays the same. Each phase uses a three-point average TAS (top, middle, and bottom of the phase altitude band) to compute time and distance for that phase. The results are combined into a single weighted-average TAS — total descent distance divided by total descent time — which the planner uses to compute TOD and block fuel.</p>
       <p style="margin:0;"><strong style="color:var(--text);">TOD (Top of Descent)</strong> — The distance from destination where descent begins. From FL220 to a sea-level airport this is approximately 79 nm. TOD is shorter for lower cruise altitudes and longer for FL280 (~102 nm), because more altitude requires more distance to lose at the same FPA.</p>
     </div>
   </div>
@@ -2907,7 +2953,7 @@ loadChart('chart.umd.js', function() { init(); });
     <div class="section-label">Alternate tab</div>
     <div style="font-size:15px;color:var(--text);line-height:1.7;">
       <p style="margin:0 0 0.6rem;">Enter an alternate airport ICAO and tap Load. Distance from your destination to the alternate is calculated automatically from airport coordinates.</p>
-      <p style="margin:0 0 0.6rem;">The divert leg uses the same full three-phase compute engine as the main planner. Set a divert cruise altitude (default 10,000 ft) and wind for the divert leg.</p>
+      <p style="margin:0 0 0.6rem;">The divert leg uses the same full three-phase compute engine as the main planner, including your chosen FPA. Set a divert cruise altitude (default 10,000 ft) and wind for the divert leg.</p>
       <p style="margin:0 0 0.6rem;"><strong style="color:var(--text);">Fuel legality (FAR 91.167)</strong> — Two standards are shown side by side: your personal reserve policy, and the FAR minimum (45 minutes of cruise fuel at the alternate). The app evaluates both so you can see the regulatory floor and your personal buffer at the same time.</p>
       <p style="margin:0;"><strong style="color:var(--text);">Weather legality</strong> — The alternate airport METAR is checked against standard IFR alternate minimums: ceiling ≥ 1,000 ft and visibility ≥ 2 sm (non-precision approach standard).</p>
     </div>
@@ -2918,7 +2964,7 @@ loadChart('chart.umd.js', function() { init(); });
     <div style="font-size:15px;color:var(--text);line-height:1.7;">
       <p style="margin:0 0 0.6rem;">Record actual TAS, fuel flow, and ISA deviation from real flights. Each data point is stored by altitude and replaces the generic model curve at that altitude.</p>
       <p style="margin:0 0 0.6rem;">The generic model uses FL220 as the efficiency peak (285 KTAS, 30.0 gph) with a V-shaped fuel flow curve — improving going up to FL220, degrading above it. This reflects the M601-E's flat-rating ceiling. The model is a starting point only.</p>
-      <p style="margin:0 0 0.6rem;">As you add real data points, the app interpolates between them using altitude proximity and ISA deviation weighting. The generic curve only fills the gaps. <strong style="color:var(--text);">The app grows more accurate with every flight you log.</strong></p>
+      <p style="margin:0 0 0.6rem;">As you add real data points, the app interpolates between them using altitude proximity and ISA deviation weighting. ISA deviation weighting means that on a hot day (e.g. ISA +8°C), the app preferentially uses data points you recorded under similar temperature conditions rather than points from a cold day — giving you more relevant performance estimates. The generic curve only fills the gaps between real data points. <strong style="color:var(--text);">The app grows more accurate with every flight you log.</strong></p>
       <p style="margin:0;">Export your performance database as CSV for backup or analysis. Import it back on a new device.</p>
     </div>
   </div>
@@ -2928,7 +2974,8 @@ loadChart('chart.umd.js', function() { init(); });
     <div style="font-size:15px;color:var(--text);line-height:1.7;">
       <p style="margin:0 0 0.6rem;">After each flight, log what actually happened: cruise altitude, TAS, fuel flow, ISA deviation, and ITT. Planned values are pulled automatically from the last planner run.</p>
       <p style="margin:0 0 0.6rem;">Deltas are color-coded: green when actual beats the plan (more efficient), amber or red when performance was worse than predicted.</p>
-      <p style="margin:0;">When you save a flight log entry with ISA deviation filled in, the TAS and FF data are automatically added to your Perf Data table — no double entry required.</p>
+      <p style="margin:0 0 0.6rem;">When you save a flight log entry with ISA deviation filled in, the TAS and FF data are automatically added to your Perf Data table — no double entry required.</p>
+      <p style="margin:0;">The <strong style="color:var(--text);">Clear form</strong> button in the entry card clears the actual flight fields so you can start a new entry, while leaving the flight history table untouched.</p>
     </div>
   </div>
 
@@ -2952,7 +2999,7 @@ loadChart('chart.umd.js', function() { init(); });
     <div class="section-label">Your defaults</div>
     <div style="font-size:15px;color:var(--text);line-height:1.7;">
       <p style="margin:0 0 0.75rem;">Tap <strong style="color:var(--text);">Save Defaults</strong> in the header any time you want to lock in your current planner settings as the starting point for every new session. Saved defaults persist across restarts.</p>
-      <p style="margin:0 0 0.875rem;">Fields that are saved: cruise altitude, cruise TAS, climb FF, cruise FF, descent FF, climb rate, reserve GPH, reserve minutes, taxi fuel, alternate distance, dep/arr ICAO, dep/arr elevations.</p>
+      <p style="margin:0 0 0.875rem;">Fields that are saved: cruise altitude, cruise TAS, climb FF, cruise FF, descent FF, descent FPA, climb rate, reserve GPH, reserve minutes, taxi fuel, alternate distance, dep/arr ICAO, dep/arr elevations.</p>
       <p style="margin:0 0 0.875rem;">Fields that are <em>not</em> saved: fuel on board, wind speed and direction. Those are flight-specific and should be entered fresh each session.</p>
       <button onclick="restoreFactoryDefaults()"
         style="font-size:13px;padding:8px 16px;border-radius:var(--radius);border:0.5px solid var(--border2);background:transparent;color:var(--text2);cursor:pointer;">
