@@ -276,7 +276,6 @@
 
   .note { font-size: 11px; color: var(--text3); margin-top: 0.75rem; line-height: 1.55; }
   .tab-pane { display: none; }
-  .tab-pane.active { display: block; }
 
   /* Bottom navigation bar */
   .bottom-nav {
@@ -314,29 +313,7 @@
 </head>
 <body>
 
-<header>
-  <div>
-    <h1>PropJet Go</h1>
-    <p>Lancair IV-PT Performance Planner</p>
-  </div>
-  <div style="display:flex;align-items:center;gap:6px;">
-    <button id="save-defaults-btn" onclick="saveUserDefaults()"
-      style="font-size:12px;padding:5px 10px;border-radius:var(--radius);border:0.5px solid var(--border2);background:transparent;color:var(--text2);cursor:pointer;white-space:nowrap;">
-      Save Defaults
-    </button>
-    <button class="reset-btn" id="reset-btn">Reset</button>
-    <button id="tab-help-btn-header" onclick="showTab('help')"
-      style="width:32px;height:32px;border-radius:50%;border:0.5px solid var(--border2);background:transparent;color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;flex-shrink:0;">
-      <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
-        <circle cx="10" cy="10" r="7.5" stroke="currentColor" stroke-width="1.5"/>
-        <path d="M10 13.5v-.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        <path d="M10 11c0-1.5 2-1.5 2-3a2 2 0 10-4 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-      </svg>
-    </button>
-  </div>
-</header>
-
-<div id="tab-plan" class="tab-pane active">
+<div id="tab-plan" class="tab-pane active" style="display:block;">
 <div class="container">
 
   <div class="card">
@@ -2858,17 +2835,17 @@ loadChart('chart.umd.js', function() { init(); });
 
   <div class="card">
     <div class="section-label">About PropJet Go</div>
-    <p style="font-size:13px;color:var(--text2);line-height:1.65;margin:0 0 0.75rem;">
+    <p style="font-size:15px;color:var(--text);line-height:1.65;margin:0 0 0.75rem;">
       PropJet Go is a flight planning tool built specifically for the Lancair IV-PT with the Walter M601-E turboprop engine. It calculates climb, cruise, and descent fuel and time for IFR planning, compares cruise altitudes, and learns your specific aircraft's performance over time.
     </p>
-    <p style="font-size:13px;color:var(--text2);line-height:1.65;margin:0;">
+    <p style="font-size:15px;color:var(--text);line-height:1.65;margin:0;">
       All core calculations run offline. Weather and winds are fetched from live sources when available but are not required.
     </p>
   </div>
 
   <div class="card">
     <div class="section-label">Planner tab</div>
-    <div style="font-size:13px;color:var(--text2);line-height:1.7;">
+    <div style="font-size:15px;color:var(--text);line-height:1.7;">
       <p style="margin:0 0 0.6rem;"><strong style="color:var(--text);">Airports</strong> — Enter ICAO identifiers and tap Load. Field elevation fills automatically. METAR weather and winds aloft are fetched in the background. The distance between airports auto-fills the distance slider.</p>
       <p style="margin:0 0 0.6rem;"><strong style="color:var(--text);">Winds aloft</strong> — Fetched from the Open-Meteo GFS model at departure, midpoint, and arrival. Average headwind or tailwind is auto-filled. ISA deviation at cruise altitude is displayed and used to select real performance data.</p>
       <p style="margin:0 0 0.6rem;"><strong style="color:var(--text);">Altitude bar chart</strong> — Shows total block fuel for each cruise altitude from 5,000 ft to FL280. The highlighted blue bar is your selected altitude. The green bar is the most fuel-efficient altitude. FL220 is the M601-E sweet spot — above it, efficiency degrades as the engine becomes ITT-limited.</p>
@@ -2880,7 +2857,7 @@ loadChart('chart.umd.js', function() { init(); });
 
   <div class="card">
     <div class="section-label">Flight calculations</div>
-    <div style="font-size:13px;color:var(--text2);line-height:1.7;">
+    <div style="font-size:15px;color:var(--text);line-height:1.7;">
       <p style="margin:0 0 0.6rem;"><strong style="color:var(--text);">Climb</strong> — Climb airspeed is approximated at 55% of cruise TAS. Climb rate is user-set (default 1,400 fpm). Fuel burn uses the climb FF field (default 40 gph). Ground distance during climb accounts for wind.</p>
       <p style="margin:0 0 0.6rem;"><strong style="color:var(--text);">Cruise</strong> — Fuel and time for the level segment between end of climb and top of descent. Groundspeed = TAS ± wind component. If the leg is too short to reach cruise altitude, the entire leg is treated as a climb with no cruise segment.</p>
       <p style="margin:0 0 0.6rem;"><strong style="color:var(--text);">Descent</strong> — The app models a three-phase profile at a constant 2.5° FPA, matching the Garmin GTN 750 VNAV descent setting:</p>
@@ -2896,7 +2873,7 @@ loadChart('chart.umd.js', function() { init(); });
 
   <div class="card">
     <div class="section-label">Fuel accounting</div>
-    <div style="font-size:13px;color:var(--text2);line-height:1.7;">
+    <div style="font-size:15px;color:var(--text);line-height:1.7;">
       <p style="margin:0 0 0.6rem;">Fuel is tracked through this chain: <strong style="color:var(--text);">Load → taxi → trip burn → fuel at destination → reserve → alternate fuel → margin</strong></p>
       <p style="margin:0 0 0.6rem;"><strong style="color:var(--text);">Reserve fuel</strong> — Set in minutes at a reserve fuel flow rate (default 38 gph × 60 min = 38 gal). This is your personal reserve policy, not the FAR minimum.</p>
       <p style="margin:0 0 0.6rem;"><strong style="color:var(--text);">Alternate fuel</strong> — Estimated fuel to fly from destination to your filed alternate. Uses 38 gph at 256 KTAS (approximate 220 KIAS at 10,000 ft ISA).</p>
@@ -2906,7 +2883,7 @@ loadChart('chart.umd.js', function() { init(); });
 
   <div class="card">
     <div class="section-label">Alternate tab</div>
-    <div style="font-size:13px;color:var(--text2);line-height:1.7;">
+    <div style="font-size:15px;color:var(--text);line-height:1.7;">
       <p style="margin:0 0 0.6rem;">Enter an alternate airport ICAO and tap Load. Distance from your destination to the alternate is calculated automatically from airport coordinates.</p>
       <p style="margin:0 0 0.6rem;">The divert leg uses the same full three-phase compute engine as the main planner. Set a divert cruise altitude (default 10,000 ft) and wind for the divert leg.</p>
       <p style="margin:0 0 0.6rem;"><strong style="color:var(--text);">Fuel legality (FAR 91.167)</strong> — Two standards are shown side by side: your personal reserve policy, and the FAR minimum (45 minutes of cruise fuel at the alternate). The app evaluates both so you can see the regulatory floor and your personal buffer at the same time.</p>
@@ -2916,7 +2893,7 @@ loadChart('chart.umd.js', function() { init(); });
 
   <div class="card">
     <div class="section-label">Perf Data tab</div>
-    <div style="font-size:13px;color:var(--text2);line-height:1.7;">
+    <div style="font-size:15px;color:var(--text);line-height:1.7;">
       <p style="margin:0 0 0.6rem;">Record actual TAS, fuel flow, and ISA deviation from real flights. Each data point is stored by altitude and replaces the generic model curve at that altitude.</p>
       <p style="margin:0 0 0.6rem;">The generic model uses FL220 as the efficiency peak (285 KTAS, 30.0 gph) with a V-shaped fuel flow curve — improving going up to FL220, degrading above it. This reflects the M601-E's flat-rating ceiling. The model is a starting point only.</p>
       <p style="margin:0 0 0.6rem;">As you add real data points, the app interpolates between them using altitude proximity and ISA deviation weighting. The generic curve only fills the gaps. <strong style="color:var(--text);">The app grows more accurate with every flight you log.</strong></p>
@@ -2926,7 +2903,7 @@ loadChart('chart.umd.js', function() { init(); });
 
   <div class="card">
     <div class="section-label">Act vs Plan tab</div>
-    <div style="font-size:13px;color:var(--text2);line-height:1.7;">
+    <div style="font-size:15px;color:var(--text);line-height:1.7;">
       <p style="margin:0 0 0.6rem;">After each flight, log what actually happened: cruise altitude, TAS, fuel flow, ISA deviation, and ITT. Planned values are pulled automatically from the last planner run.</p>
       <p style="margin:0 0 0.6rem;">Deltas are color-coded: green when actual beats the plan (more efficient), amber or red when performance was worse than predicted.</p>
       <p style="margin:0;">When you save a flight log entry with ISA deviation filled in, the TAS and FF data are automatically added to your Perf Data table — no double entry required.</p>
@@ -2935,7 +2912,7 @@ loadChart('chart.umd.js', function() { init(); });
 
   <div class="card">
     <div class="section-label">FAA regulations referenced</div>
-    <div style="font-size:13px;color:var(--text2);line-height:1.7;">
+    <div style="font-size:15px;color:var(--text);line-height:1.7;">
       <p style="margin:0 0 0.6rem;"><strong style="color:var(--text);">FAR 91.167 (IFR fuel requirements)</strong> — For IFR flight requiring an alternate, fuel must cover: (1) fly to destination, (2) fly to alternate, (3) fly 45 minutes at normal cruise.</p>
       <p style="margin:0 0 0.6rem;"><strong style="color:var(--text);">1-2-3 Rule</strong> — An alternate is not required if the destination forecast shows ceiling ≥ 2,000 ft and visibility ≥ 3 sm from 1 hour before to 1 hour after ETA. The app checks current METAR as a proxy — verify with the TAF.</p>
       <p style="margin:0;"><strong style="color:var(--text);">250-knot rule (FAR 91.117)</strong> — No aircraft may exceed 250 KIAS below 10,000 ft MSL. The descent model reflects this with a transition to 240 KIAS below 10,000 ft.</p>
@@ -2944,14 +2921,14 @@ loadChart('chart.umd.js', function() { init(); });
 
   <div class="card">
     <div class="section-label">Data &amp; privacy</div>
-    <p style="font-size:13px;color:var(--text2);line-height:1.65;margin:0;">
+    <p style="font-size:15px;color:var(--text);line-height:1.65;margin:0;">
       All planning data, performance records, and flight logs are stored locally on your device. No account is required. The only network requests are to Open-Meteo (winds aloft, anonymous) and CheckWX (METAR/TAF, anonymous API key). No personal data is transmitted or stored externally.
     </p>
   </div>
 
   <div class="card">
     <div class="section-label">Your defaults</div>
-    <div style="font-size:13px;color:var(--text2);line-height:1.7;">
+    <div style="font-size:15px;color:var(--text);line-height:1.7;">
       <p style="margin:0 0 0.75rem;">Tap <strong style="color:var(--text);">Save Defaults</strong> in the header any time you want to lock in your current planner settings as the starting point for every new session. Saved defaults persist across restarts.</p>
       <p style="margin:0 0 0.875rem;">Fields that are saved: cruise altitude, cruise TAS, climb FF, cruise FF, descent FF, climb rate, reserve GPH, reserve minutes, taxi fuel, alternate distance, dep/arr ICAO, dep/arr elevations.</p>
       <p style="margin:0 0 0.875rem;">Fields that are <em>not</em> saved: fuel on board, wind speed and direction. Those are flight-specific and should be entered fresh each session.</p>
@@ -2959,17 +2936,39 @@ loadChart('chart.umd.js', function() { init(); });
         style="font-size:13px;padding:8px 16px;border-radius:var(--radius);border:0.5px solid var(--border2);background:transparent;color:var(--text2);cursor:pointer;">
         Restore Factory Defaults
       </button>
-      <p style="margin:0.5rem 0 0;font-size:11px;color:var(--text3);">Clears your saved defaults and restores the original factory values.</p>
+      <p style="margin:0.5rem 0 0;font-size:13px;color:var(--text2);">Clears your saved defaults and restores the original factory values.</p>
     </div>
   </div>
 
-  <div style="text-align:center;padding:1rem 0 0.5rem;font-size:11px;color:var(--text3);">
+  <div style="text-align:center;padding:1rem 0 0.5rem;font-size:13px;color:var(--text2);">
     PropJet Go · Lancair IV-PT Performance Planner · v1.0
   </div>
 
 </div>
 </div> <!-- end tab-help -->
 
+
+<header>
+  <div>
+    <h1>PropJet Go</h1>
+    <p>Lancair IV-PT Performance Planner</p>
+  </div>
+  <div style="display:flex;align-items:center;gap:6px;">
+    <button id="save-defaults-btn" onclick="saveUserDefaults()"
+      style="font-size:12px;padding:5px 10px;border-radius:var(--radius);border:0.5px solid var(--border2);background:transparent;color:var(--text2);cursor:pointer;white-space:nowrap;">
+      Save Defaults
+    </button>
+    <button class="reset-btn" id="reset-btn">Reset</button>
+    <button id="tab-help-btn-header" onclick="showTab('help')"
+      style="width:32px;height:32px;border-radius:50%;border:0.5px solid var(--border2);background:transparent;color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;flex-shrink:0;">
+      <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
+        <circle cx="10" cy="10" r="7.5" stroke="currentColor" stroke-width="1.5"/>
+        <path d="M10 13.5v-.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <path d="M10 11c0-1.5 2-1.5 2-3a2 2 0 10-4 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+    </button>
+  </div>
+</header>
 
 <nav class="bottom-nav" id="bottom-nav">
   <button id="tab-plan-btn" class="active" onclick="showTab('plan')">
