@@ -275,7 +275,8 @@
   .chart-wrap { position: relative; width: 100%; height: 200px; }
 
   .note { font-size: 11px; color: var(--text3); margin-top: 0.75rem; line-height: 1.55; }
-  .tab-pane { display: block; }
+  .tab-pane { display: none; }
+  .tab-pane.active { display: block; }
 
   /* Bottom navigation bar */
   .bottom-nav {
@@ -324,6 +325,14 @@
       Save Defaults
     </button>
     <button class="reset-btn" id="reset-btn">Reset</button>
+    <button id="tab-help-btn-header" onclick="showTab('help')"
+      style="width:32px;height:32px;border-radius:50%;border:0.5px solid var(--border2);background:transparent;color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;flex-shrink:0;">
+      <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
+        <circle cx="10" cy="10" r="7.5" stroke="currentColor" stroke-width="1.5"/>
+        <path d="M10 13.5v-.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <path d="M10 11c0-1.5 2-1.5 2-3a2 2 0 10-4 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+    </button>
   </div>
 </header>
 
@@ -1891,7 +1900,7 @@ function showTab(name) {
   var helpTab = document.getElementById('tab-help');
   if (helpTab) helpTab.style.display = name==='help' ? 'block' : 'none';
   // Update bottom nav active state
-  ['plan','perf','log','altplan','help'].forEach(function(t) {
+  ['plan','perf','log','altplan'].forEach(function(t) {
     var btn = document.getElementById('tab-'+t+'-btn');
     if (btn) btn.classList.toggle('active', t===name);
   });
@@ -1899,6 +1908,12 @@ function showTab(name) {
   if (resetBtn) resetBtn.style.display = (name==='perf'||name==='log'||name==='altplan'||name==='help') ? 'none' : '';
   var saveBtn = document.getElementById('save-defaults-btn');
   if (saveBtn) saveBtn.style.display = (name==='perf'||name==='log'||name==='altplan'||name==='help') ? 'none' : '';
+  // Header help button active state
+  var helpHeaderBtn = document.getElementById('tab-help-btn-header');
+  if (helpHeaderBtn) {
+    helpHeaderBtn.style.background = name==='help' ? 'var(--blue-bg)' : 'transparent';
+    helpHeaderBtn.style.color = name==='help' ? 'var(--blue-label)' : '';
+  }
   if (name==='perf') refreshPerfPage();
   if (name==='log') { populateLogForm(); refreshLogPage(); }
   if (name==='altplan') refreshAltPlan();
@@ -2982,14 +2997,7 @@ loadChart('chart.umd.js', function() { init(); });
     </svg>
     Act vs Plan
   </button>
-  <button id="tab-help-btn" onclick="showTab('help')">
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-      <circle cx="10" cy="10" r="7.5" stroke="currentColor" stroke-width="1.5"/>
-      <path d="M10 13.5v-.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-      <path d="M10 11c0-1.5 2-1.5 2-3a2 2 0 10-4 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-    </svg>
-    Help
-  </button>
+
 </nav>
 
 </body>
